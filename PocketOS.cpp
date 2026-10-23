@@ -1,5 +1,4 @@
 #include <iostream>
-#include <vector>
 #include <string>
 #include <windows.h>
 #include <conio.h>
@@ -27,6 +26,55 @@ struct App {
     string icon;
 };
 
+// Doubly Linked List Node
+struct AppNode {
+    App data;
+    AppNode* prev;
+    AppNode* next;
+
+    AppNode(const App& appData) : data(appData), prev(nullptr), next(nullptr) {}
+};
+
+// Doubly Linked List Class
+class AppList {
+private:
+    AppNode* head;
+    AppNode* tail;
+    int count;
+
+public:
+    AppList() : head(nullptr), tail(nullptr), count(0) {}
+
+    ~AppList() {
+        AppNode* current = head;
+        while (current != nullptr) {
+            AppNode* nextNode = current->next;
+            delete current;
+            current = nextNode;
+        }
+    }
+
+    void push_back(const App& app) {
+        AppNode* newNode = new AppNode(app);
+        if (!head) {
+            head = tail = newNode;
+        } else {
+            tail->next = newNode;
+            newNode->prev = tail;
+            tail = newNode;
+        }
+        count++;
+    }
+
+    AppNode* getHead() const {
+        return head;
+    }
+
+    int size() const {
+        return count;
+    }
+};
+
 //cursor control op
 void gotoxy(short x, short y) {
     COORD coord = {x, y};
@@ -40,7 +88,12 @@ void hideCursor() {
     cursorInfo.bVisible = FALSE;
     SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cursorInfo);
 }
-
+void showCursor() {
+    CONSOLE_CURSOR_INFO cursorInfo;
+    cursorInfo.dwSize = 100;
+    cursorInfo.bVisible = TRUE;
+    SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cursorInfo);
+}
 // color settings
 void setColor(int color) {
     SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
@@ -50,7 +103,7 @@ void setColor(int color) {
 void clearScreen() {
     for (int y = PHONE_TOP; y <= PHONE_BOTTOM; ++y) {
         gotoxy(PHONE_LEFT, y);
-        cout << "                                   ";
+        cout << "                                    ";
     }
 }
 
@@ -59,37 +112,43 @@ void drawPhoneFrame() {
     gotoxy(0, 0);
     setColor(8); // Dark gray frame
     cout << "  .-------------------------------------.\n";
-    cout << "  |                (  O  )              |\n";
+    cout << "  |                 (  O  )               |\n";
     cout << "  |-------------------------------------|\n";
     for (int i = 0; i < 25; ++i) {
         cout << "  |                                     |\n";
     }
     cout << "  |-------------------------------------|\n";
-    cout << "  |                 [ O ]               |\n";
+    cout << "  |                  [ O ]                |\n";
     cout << "  '-------------------------------------'\n";
     setColor(7);
 }
 
 // home screen display
-void renderHomeScreen(const vector<App>& apps, int selected) {
+void renderHomeScreen(const AppList& apps, AppNode* selectedApp) {
     // Status bar
     gotoxy(5, 3);
     setColor(11); // Cyan text
     cout << "10:55 PM        5G [|||]";
 
     // App grid (2 Columns)
-    for (size_t i = 0; i < apps.size(); ++i) {
-        short col = (i % 2 == 0) ? 6 : 18;
-        short row = 6 + static_cast<short>(i / 2) * 3;
+    AppNode* current = apps.getHead();
+    int index = 0;
+
+    while (current != nullptr) {
+        short col = (index % 2 == 0) ? 6 : 18;
+        short row = 6 + static_cast<short>(index / 2) * 3;
 
         gotoxy(col, row);
-        if (static_cast<int>(i) == selected) {
+        if (current == selectedApp) {
             setColor(240); // Highlight selected app (Black text on White)
-            cout << "[" << apps[i].icon << " " << apps[i].name << "]";
+            cout << "[" << current->data.icon << " " << current->data.name << "]";
         } else {
             setColor(7); // Normal white text
-            cout << " " << apps[i].icon << " " << apps[i].name << " ";
+            cout << " " << current->data.icon << " " << current->data.name << " ";
         }
+
+        current = current->next;
+        index++;
     }
 
     // Bottom dock
@@ -134,21 +193,43 @@ void launchApp(const App& app) {
 
     clearScreen();
 }
+
+void spadeCard(){
+    setColor(7);
+    gotoxy(20, 11);
+    cout <<"     *";
+    gotoxy(20, 12);
+    cout <<"	***";
+    gotoxy(20, 13);
+    cout <<"    *****";
+    gotoxy(20, 14);
+    cout <<"   *******";
+    gotoxy(20, 15);
+    cout <<"   ** * **";
+    gotoxy(20, 16);
+    cout <<"     *";
+    gotoxy(20, 15);
+    cout <<"    ***";		 
+}
+
+void heartCard(){
+	
+}
+
 void launchCard(const App& app) {
-	hideCursor();
+    hideCursor();
     clearScreen();
     int selected = 0;
     int score = 0;
     bool running = true;
     
-     vector<App> apps = {
-        {"Phone",   ">"},
-        {"YouWho?", "#"},
-        {"Camera",  "O"},
-        {"Gallery", "*"},
-        {"Music",   "~"},
-        {"Settings","@"}
-    };
+    AppList apps;
+    apps.push_back({"Phone",   ">"});
+    apps.push_back({"YouWho?", "#"});
+    apps.push_back({"Camera",  "O"});
+    apps.push_back({"Gallery", "*"});
+    apps.push_back({"Music",   "~"});
+    apps.push_back({"Settings","@"});
     
     gotoxy(5, 3);
     setColor(11);
@@ -157,21 +238,39 @@ void launchCard(const App& app) {
     gotoxy(7,5);
     setColor(7);
     cout << "  _________________________\n";
+    
     for(int i = 0; i < 15; i++){
-    	gotoxy(7,6+i);
-    	cout << "||                         |\n";
-	}
-	srand(time(0));
-	int randomNum = rand() % 10 + 1;
+        gotoxy(7,6+i);
+        cout << "||                         |\n";
+    }
+    srand(time(0));
+    int randomNum = rand() % 10 + 1;
 	
-	
+    setColor(7);
+    gotoxy(20, 11);
+    cout <<"     *";
+    gotoxy(20, 12);
+    cout <<"	***";
+    gotoxy(20, 13);
+    cout <<"    *****";
+    gotoxy(20, 14);
+    cout <<"   *******";
+    gotoxy(20, 15);
+    cout <<"   ** * **";
+    gotoxy(20, 16);
+    cout <<"     *";
+    gotoxy(20, 17);
+    cout <<"    ***";		 
     while (running) {
         gotoxy(10,8);
-	cout << randomNum;
-	int newNum = rand() % 10 + 1;
-	while(randomNum == newNum){
-	newNum = rand() % 10 + 1;
-    }
+        setColor(7);
+        cout << randomNum << " ";
+        int newNum = rand() % 10 + 1;
+        gotoxy(29, 4);
+        cout << "Score:" << score;
+        while(randomNum == newNum){
+            newNum = rand() % 10 + 1;
+        }
 
         gotoxy(8, 26);
         if (selected == 0) {
@@ -185,7 +284,6 @@ void launchCard(const App& app) {
             setColor(240); // Normal white text
             cout << "[" << "Lower" << " " << "v" << "]";
         }
-    
 
         int ch = _getch();
         if (ch == 224 || ch == 0) { // Arrow key prefix handling
@@ -198,77 +296,151 @@ void launchCard(const App& app) {
                     break;
             }
         } else if (ch == KEY_ENTER) {
-        	if(selected == 0){
-               if(newNum > randomNum){
-               	score +=1;
-               	randomNum = newNum;
-               	gotoxy(20, 22);
-               	setColor(2);
-               	cout << "/";
-               	gotoxy(19, 23);
-               	cout << "V";
-               	Sleep(1000);
-               	gotoxy(20, 22);
-               	setColor(7);
-               	cout << "/";
-               	gotoxy(19, 23);
-               	cout << "V";
-			   }
-               
-			}else{
-			   	
-			}
+            if(selected == 0){
+                if(newNum > randomNum){
+                    score +=1;
+                    randomNum = newNum;
+                    gotoxy(20, 22);
+                    setColor(2);
+                    cout << "/";
+                    gotoxy(19, 23);
+                    cout << "V";
+                    Sleep(1000);
+                    gotoxy(20, 22);
+                    setColor(7);
+                    cout << "/";
+                    gotoxy(19, 23);
+                    cout << "V";
+                }else{
+                    string usrname;
+                    gotoxy(10,8);
+                    cout << newNum;
+                    gotoxy(19, 23);
+                    cout <<"               ";
+                    gotoxy(19, 22);
+                    cout <<"GAME OVER [X]";
+                    Sleep(1000);
+                    gotoxy(19, 22);
+                    setColor(4);
+                    cout <<"GAME OVER [X]";
+                    Sleep(1000);
+                    gotoxy(19, 22);
+                    cout <<"               ";
+                    gotoxy(19, 22);
+                    setColor(7);
+                    cout <<"Name:";
+                    showCursor();
+                    cin >> usrname;
+                    gotoxy(19, 22);
+                    cout <<"               ";
+                    hideCursor();
+                    score = 0;
+                }
+            }else{
+                if(newNum < randomNum){
+                    score +=1;
+                    randomNum = newNum;
+                    gotoxy(20, 22);
+                    setColor(2);
+                    cout << "/";
+                    gotoxy(19, 23);
+                    cout << "V";
+                    Sleep(1000);
+                    gotoxy(20, 22);
+                    setColor(7);
+                    cout << "/";
+                    gotoxy(19, 23);
+                    cout << "V";
+                }else{
+                    string usrname;
+                    setColor(7);
+                    gotoxy(10,8);
+                    cout << newNum;
+                    gotoxy(19, 23);
+                    cout <<"               ";
+                    gotoxy(19, 22);
+                    cout <<"GAME OVER [X]";
+                    Sleep(1000);
+                    gotoxy(19, 22);
+                    setColor(4);
+                    cout <<"GAME OVER [X]";
+                    Sleep(1000);
+                    gotoxy(19, 22);
+                    cout <<"               ";
+                    gotoxy(19, 22);
+                    setColor(7);
+                    cout <<"Name:";
+                    showCursor();
+                    cin >> usrname;
+                    gotoxy(19, 22);
+                    cout <<"               ";
+                    hideCursor();
+                    score = 0;
+                }
+            }
         } else if (ch == KEY_ESC) {
             running = false;
         }
     }
-   
-    
 
     clearScreen();
 }
+
 int main() {
     hideCursor();
     system("cls");
 
-    vector<App> apps = {
-        {"Phone",   ">"},
-        {"YouWho?", "#"},
-        {"Camera",  "O"},
-        {"Gallery", "*"},
-        {"Music",   "~"},
-        {"Settings","@"}
-    };
+    AppList apps;
+    apps.push_back({"Phone",   ">"});
+    apps.push_back({"YouWho?", "#"});
+    apps.push_back({"Camera",  "O"});
+    apps.push_back({"Gallery", "*"});
+    apps.push_back({"Music",   "~"});
+    apps.push_back({"Settings","@"});
 
-    int selected = 0;
+    AppNode* selectedApp = apps.getHead();
     bool running = true;
 
     drawPhoneFrame();
 
-    while (running) {
-        renderHomeScreen(apps, selected);
+    while (running && selectedApp != nullptr) {
+        renderHomeScreen(apps, selectedApp);
 
         int ch = _getch();
         if (ch == 224 || ch == 0) { // Arrow key prefix handling
             switch (_getch()) {
                 case KEY_UP:
-                    if (selected >= 2) selected -= 2;
+                    // Move 2 nodes back for row navigation
+                    if (selectedApp->prev && selectedApp->prev->prev) {
+                        selectedApp = selectedApp->prev->prev;
+                    }
                     break;
+
                 case KEY_DOWN:
-                    if (selected + 2 < static_cast<int>(apps.size())) selected += 2;
+                    // Move 2 nodes forward for row navigation
+                    if (selectedApp->next && selectedApp->next->next) {
+                        selectedApp = selectedApp->next->next;
+                    }
                     break;
+
                 case KEY_LEFT:
-                    if (selected % 2 == 1) selected -= 1;
+                    // Move 1 node back
+                    if (selectedApp->prev) {
+                        selectedApp = selectedApp->prev;
+                    }
                     break;
+
                 case KEY_RIGHT:
-                    if (selected % 2 == 0 && selected + 1 < static_cast<int>(apps.size())) selected += 1;
+                    // Move 1 node forward
+                    if (selectedApp->next) {
+                        selectedApp = selectedApp->next;
+                    }
                     break;
             }
         } else if (ch == KEY_ENTER) {
-        	if(apps[selected].name == "YouWho?"){
-               launchCard(apps[selected]);
-               
-			   }
+            if (selectedApp->data.name == "YouWho?") {
+                launchCard(selectedApp->data);
+            }
         } else if (ch == KEY_ESC) {
             running = false;
         }
