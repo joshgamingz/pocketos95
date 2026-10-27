@@ -508,8 +508,7 @@ public:
                 }
 
                 if (needSwap == true) {
-                    // swap the data of the two nodes
-                    Run temp = current->data;
+                    Run temp = current->data; // swap the data of the two nodes
                     current->data = current->next->data;
                     current->next->data = temp;
                     swapped = true;
@@ -630,7 +629,7 @@ void playSnake() { // for one round of the game, from start to game over. The sc
     int snakeY[MAX_SNAKE];
     int length = 3;
 
-    snakeX[0] = 21;  snakeY[0] = 15;    // head
+    snakeX[0] = 21;  snakeY[0] = 15;    // head of the snake
     snakeX[1] = 20;  snakeY[1] = 15;
     snakeX[2] = 19;  snakeY[2] = 15;
 
@@ -1151,8 +1150,7 @@ public:
     int size() const { return count; }
 };
 
-// ---------- DOUBLY LINKED LIST: BATTLES ----------
-struct BattleNode {
+struct BattleNode { // Doubly Linked List Node (same idea sa Snake) (The whole RPS game is NODESS!!! :>)
     Battle data;
     BattleNode* prev;
     BattleNode* next;
@@ -1677,6 +1675,7 @@ void launchRps(const App& app) { //LOGIN MENU of the RPS app (Vs Computer, 2 Pla
 }
 #endif // END OF THE RPS GAME CODE
 //==================================================================================================================================
+
 int main() {
     hideCursor();
     system("cls");
@@ -1688,11 +1687,13 @@ int main() {
     apps.push_back({"Gallery", "*"});
     apps.push_back({"Music",   "~"});
     apps.push_back({"Settings","@"});
+
 #ifdef ENABLE_SNAKE
-    apps.push_back({"Snake",   "S"});
+    apps.push_back({"BitBite", "S"});
 #endif
+
 #ifdef ENABLE_RPS
-    apps.push_back({"RPS",     "R"});
+    apps.push_back({"Rock 'n' Clash", "R"});
 #endif
 
     AppNode* selectedApp = apps.getHead();
@@ -1739,12 +1740,12 @@ int main() {
                 launchCard(selectedApp->data);
             }
 #ifdef ENABLE_SNAKE
-            else if (selectedApp->data.name == "Snake") {
+            else if (selectedApp->data.name == "BitBite") {
                 launchSnake(selectedApp->data);
             }
 #endif
 #ifdef ENABLE_RPS
-            else if (selectedApp->data.name == "RPS") {
+            else if (selectedApp->data.name == "Rock 'n' Clash") {
                 launchRps(selectedApp->data);
             }
 #endif
