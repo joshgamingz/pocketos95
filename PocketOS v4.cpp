@@ -7,9 +7,6 @@
 
 using namespace std;
 
-#define ENABLE_SNAKE
-#define ENABLE_RPS
-
 //key controls
 const int KEY_UP    = 72;
 const int KEY_DOWN  = 80;
@@ -131,7 +128,7 @@ void renderHomeScreen(const AppList& apps, AppNode* selectedApp) {
     // Status bar
     gotoxy(5, 3);
     setColor(11); // Cyan text
-    cout << "06:07 PM        1G [|||]";
+    cout << "06:07 PM                   1G [|||]";
 
     // App grid (2 Columns)
     AppNode* current = apps.getHead();
@@ -225,15 +222,7 @@ void launchCard(const App& app) {
     int selected = 0;
     int score = 0;
     bool running = true;
-    
-    AppList apps;
-    apps.push_back({"Phone",   ">"});
-    apps.push_back({"YouWho?", "#"});
-    apps.push_back({"Camera",  "O"});
-    apps.push_back({"Gallery", "*"});
-    apps.push_back({"Music",   "~"});
-    apps.push_back({"Settings","@"});
-    
+
     gotoxy(5, 3);
     setColor(11);
     cout << "< Back         " << app.icon << " App";
@@ -388,8 +377,7 @@ void launchCard(const App& app) {
 
     clearScreen();
 }
-// =============================================================================================================================
-#ifdef ENABLE_SNAKE // START NG SNAKE GAME (HANGGANG #IFEND SA DULO NG FILE NA TO) "CURRENTLY 618 LINE NG CODE"
+//START NG SNAKE GAME (HANGGANG #IFEND SA DULO NG FILE NA TO) "CURRENTLY 618 LINE NG CODE" =========================================================
 
 const int FIELD_LEFT   = 6; // Snake field dimensions (baguhin if lalakihan yung phone)
 const int FIELD_RIGHT  = 37;
@@ -1006,9 +994,9 @@ void launchSnake(const App& app) { // START MENU of the Snake app (Play, Run His
     setColor(7);
     clearScreen();
 }
-#endif // GOING BACK TO THE MAIN APP AND *END OF THE SNAKE GAME CODE* 
-// =============================================================================================================================
-#ifdef ENABLE_RPS // START NG RPS GAME (HANGGANG #endif SA DULO NG BLOCK NA TO)
+// GOING BACK TO THE MAIN APP AND *END OF THE SNAKE GAME CODE* =====================================================================================
+
+// START NG RPS GAME================================================================================================================================
 
 const int RPS_TARGET = 2;   // points needed to win a match (NAKA SET SA 2 PTS, CHANGE NA LANG IF GUSTO MO)
 const int QUIT_PICK  = 3;   // special value: the player pressed Esc
@@ -1673,8 +1661,7 @@ void launchRps(const App& app) { //LOGIN MENU of the RPS app (Vs Computer, 2 Pla
     setColor(7);
     clearScreen();
 }
-#endif // END OF THE RPS GAME CODE
-//==================================================================================================================================
+// END OF THE RPS GAME CODE=========================================================================================================================
 
 int main() {
     hideCursor();
@@ -1687,14 +1674,8 @@ int main() {
     apps.push_back({"Gallery", "*"});
     apps.push_back({"Music",   "~"});
     apps.push_back({"Settings","@"});
-
-#ifdef ENABLE_SNAKE
     apps.push_back({"BitBite", "S"});
-#endif
-
-#ifdef ENABLE_RPS
     apps.push_back({"Rock 'n' Clash", "R"});
-#endif
 
     AppNode* selectedApp = apps.getHead();
     bool running = true;
@@ -1739,16 +1720,12 @@ int main() {
             if (selectedApp->data.name == "YouWho?") {
                 launchCard(selectedApp->data);
             }
-#ifdef ENABLE_SNAKE
             else if (selectedApp->data.name == "BitBite") {
                 launchSnake(selectedApp->data);
             }
-#endif
-#ifdef ENABLE_RPS
             else if (selectedApp->data.name == "Rock 'n' Clash") {
                 launchRps(selectedApp->data);
             }
-#endif
         } else if (ch == KEY_ESC) {
             running = false;
         }
