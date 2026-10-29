@@ -1310,16 +1310,16 @@ int askChoice(string name) {    // the player picks a hand (keys are hidden so p
     gotoxy(5, 9);
     cout << name << ", pick your hand:";
     gotoxy(5, 11);
-    cout << "R:Rock  P:Paper  S:Scissors";
+    cout << "1:Rock  2:Paper  3:Scissors";
 
     int pick = -1;
     while (pick == -1) {
         int ch = _getch();
-        if (ch == 'r' || ch == 'R') {
+        if (ch == '1') {
             pick = 0;
-        } else if (ch == 'p' || ch == 'P') {
+        } else if (ch == '2') {
             pick = 1;
-        } else if (ch == 's' || ch == 'S') {
+        } else if (ch == '3') {
             pick = 2;
         } else if (ch == KEY_ESC) {
             pick = QUIT_PICK;
@@ -1469,7 +1469,7 @@ void startMatch(bool vsComputer) {      // ask for the names, then play
 }
 
 void drawBattle(BattleNode* current, string message) {   // show one saved battle (THE BATTLE ARCHIVED IN THE LIST)
-    drawRpsHeader("Battle Archive");
+    drawRpsHeader("Battle History");
 
     gotoxy(5, 5);
     setColor(15);
@@ -1502,7 +1502,7 @@ void drawBattle(BattleNode* current, string message) {   // show one saved battl
 
 void showArchive() {    // scroll through the battles with the arrow keys
     if (rpsBattles.size() == 0) {
-        showEmpty("Battle Archive");
+        showEmpty("Battle History");
         return;
     }
 
@@ -1607,7 +1607,7 @@ void launchRps(const App& app) { //LOGIN MENU of the RPS app (Vs Computer, 2 Pla
     hideCursor();
     srand(time(0));
 
-    string options[5] = { "Vs Computer", "2 Players", "Rankings", "Battle Archive", "Back" };
+    string options[5] = { "Vs Computer", "2 Players", "Rankings", "Battle History", "Back" };
     int selected = 0;
     bool inMenu = true;
 
