@@ -4,16 +4,20 @@
 #include <conio.h>
 #include <cstdlib>
 #include <ctime>
+#include <cctype>
 
-using namespace std;
+#ifndef nullptr
+#define nullptr NULL  // Error handling for old devc++ versions
+#endif
 
 //key controls
-const int KEY_UP    = 72;
-const int KEY_DOWN  = 80;
-const int KEY_LEFT  = 75;
-const int KEY_RIGHT = 77;
-const int KEY_ENTER = 13;
-const int KEY_ESC   = 27;
+const int KEY_UP     = 72;
+const int KEY_DOWN   = 80;
+const int KEY_LEFT   = 75;
+const int KEY_RIGHT  = 77;
+const int KEY_DELETE = 83;   // Delete key (comes after the 224 prefix, same as arrows)
+const int KEY_ENTER  = 13;
+const int KEY_ESC    = 27;
 
 //phone dimensions
 const int PHONE_LEFT   = 4;
@@ -21,12 +25,23 @@ const int PHONE_RIGHT  = 40;
 const int PHONE_TOP    = 3;
 const int PHONE_BOTTOM = 27;
 
+void clearRows(int from, int to);   // (defined later in the RPS part, declared here so the home screen can use it)
+
+std::string toLowerStr(const std::string& s) {   // lowercase copy of a string (for A-Z sorting and searching that ignores CAPS)
+    std::string result = s;
+    for (size_t i = 0; i < result.length(); i++) {
+        result[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(result[i])));
+    }
+    return result;
+}
+
 struct App {
-    string name;
-    string icon;
+    std::string name;
+    std::string icon;
+    std::string developer;
 };
 
-// Doubly Linked List Node
+
 struct AppNode {
     App data;
     AppNode* prev;
@@ -35,7 +50,7 @@ struct AppNode {
     AppNode(const App& appData) : data(appData), prev(nullptr), next(nullptr) {}
 };
 
-// Doubly Linked List Class
+
 class AppList {
 private:
     AppNode* head;
@@ -66,14 +81,115 @@ public:
         count++;
     }
 
+    void removeNode(AppNode* node) {   
+        if (node == nullptr) {
+            return;
+        }
+
+        if (node->prev != nullptr) {    
+            node->prev->next = node->next;
+        } else {
+            head = node->next;          
+        }
+
+        if (node->next != nullptr) {    
+            node->next->prev = node->prev;
+        } else {
+            tail = node->prev;         
+        }
+
+        delete node;
+        count--;
+    }
+
+    void sortByName(bool ascending) {   
+        if (count < 2) {
+            return;
+        }
+
+        bool swapped = true;
+        while (swapped) {
+            swapped = false;
+            AppNode* current = head;
+
+            while (current->next != nullptr) {
+                std::string a = toLowerStr(current->data.name);
+                std::string b = toLowerStr(current->next->data.name);
+
+                bool needSwap = false;
+                if (ascending == true) {
+                    needSwap = (a > b);
+                } else {
+                    needSwap = (a < b);
+                }
+
+                if (needSwap == true) {
+                    App temp = current->data;   // swap the data of the two nodes
+                    current->data = current->next->data;
+                    current->next->data = temp;
+                    swapped = true;
+                }
+
+                current = current->next;
+            }
+        }
+    }
+
     AppNode* getHead() const {
         return head;
+    }
+
+    AppNode* getTail() const {
+        return tail;
     }
 
     int size() const {
         return count;
     }
 };
+
+
+const int MAX_APPS = 20;    
+
+AppList homeApps;           
+AppList storeApps;          
+int homeSortMode = 0;      
+
+void applyHomeSort() {      
+    if (homeSortMode == 1) {
+        homeApps.sortByName(true);
+    } else if (homeSortMode == 2) {
+        homeApps.sortByName(false);
+    }
+}
+
+
+int collectVisible(const AppList& apps, const std::string& filter, AppNode* out[]) {
+    std::string key = toLowerStr(filter);
+    int n = 0;
+    AppNode* current = apps.getHead();
+    while (current != nullptr && n < MAX_APPS) {
+        if (key.empty() || toLowerStr(current->data.name).find(key) != std::string::npos) {
+            out[n] = current;
+            n++;
+        }
+        current = current->next;
+    }
+    return n;
+}
+
+int indexOfName(const AppList& apps, const std::string& name) {   
+    int index = 0;
+    AppNode* current = apps.getHead();
+    while (current != nullptr) {
+        if (current->data.name == name) {
+            return index;
+        }
+        current = current->next;
+        index++;
+    }
+    return -1;
+}
 
 //cursor control op
 void gotoxy(short x, short y) {
@@ -103,61 +219,100 @@ void setColor(int color) {
 void clearScreen() {
     for (int y = PHONE_TOP; y <= PHONE_BOTTOM; ++y) {
         gotoxy(PHONE_LEFT, y);
-        cout << "                                    ";
+        std::cout << "                                    ";
     }
 }
 
 // print phone frame
 void drawPhoneFrame() {
     gotoxy(0, 0);
-    setColor(8); // Dark gray frame
-    cout << "  .-------------------------------------.\n";
-    cout << "  |               (  O  )               |\n";
-    cout << "  |-------------------------------------|\n";
+    setColor(8); 
+    std::cout << "  .-------------------------------------.\n";
+    std::cout << "  |               (  O  )               |\n";
+    std::cout << "  |-------------------------------------|\n";
     for (int i = 0; i < 25; ++i) {
-        cout << "  |                                     |\n";
+        std::cout << "  |                                     |\n";
     }
-    cout << "  |-------------------------------------|\n";
-    cout << "  |                [ O ]                |\n";
-    cout << "  '-------------------------------------'\n";
+    std::cout << "  |-------------------------------------|\n";
+    std::cout << "  |                [ O ]                |\n";
+    std::cout << "  '-------------------------------------'\n";
     setColor(7);
 }
 
 // home screen display
-void renderHomeScreen(const AppList& apps, AppNode* selectedApp) {
+
+void renderHomeScreen(AppNode* visible[], int visCount, int selected,
+                      const std::string& filter, bool searching, const std::string& message) {
     // Status bar
     gotoxy(5, 3);
     setColor(11); // Cyan text
-    cout << "06:07 PM                   1G [|||]";
+    std::cout << "06:07 PM                   1G [|||]";
+
+    clearRows(4, 23);   
+    // Search bar
+    gotoxy(5, 4);
+    if (searching == true) {
+        setColor(15);
+        std::cout << "Search: " << filter << "_";
+    } else {
+        setColor(8);
+        std::cout << "Search: (press F)";
+    }
+
+    // Sort label
+    gotoxy(5, 5);
+    setColor(8);
+    if (homeSortMode == 1) {
+        std::cout << "Sort: A-Z";
+    } else if (homeSortMode == 2) {
+        std::cout << "Sort: Z-A";
+    } else {
+        std::cout << "Sort: None";
+    }
 
     // App grid (2 Columns)
-    AppNode* current = apps.getHead();
-    int index = 0;
+    if (visCount == 0) {
+        gotoxy(10, 10);
+        setColor(7);
+        std::cout << "No apps found.";
+    }
 
-    while (current != nullptr) {
-        short col = (index % 2 == 0) ? 6 : 18;
+    for (int index = 0; index < visCount; index++) {
+        short col = (index % 2 == 0) ? 4 : 22;      // columns are 18 wide so even the longest name fits
         short row = 6 + static_cast<short>(index / 2) * 3;
 
         gotoxy(col, row);
-        if (current == selectedApp) {
+        if (index == selected) {
             setColor(240); // Highlight selected app (Black text on White)
-            cout << "[" << current->data.icon << " " << current->data.name << "]";
+            std::cout << "[" << visible[index]->data.icon << " " << visible[index]->data.name << "]";
         } else {
             setColor(7); // Normal white text
-            cout << " " << current->data.icon << " " << current->data.name << " ";
+            std::cout << " " << visible[index]->data.icon << " " << visible[index]->data.name << " ";
         }
-
-        current = current->next;
-        index++;
     }
 
-    // Bottom dock (moved down a bit so a 4th app row fits above it)
+    // Bottom dock
     gotoxy(5, 19);
     setColor(8);
-    cout << "---------------------";
+    std::cout << "---------------------";
     gotoxy(5, 20);
-    setColor(14); // Yellow text
-    cout << "Enter: Open | Esc: Off";
+    setColor(14); 
+    if (searching == true) {
+        std::cout << "Type name  Enter:Open  Esc:Cancel";
+    } else {
+        std::cout << "Enter: Open | Esc: Off";
+    }
+    gotoxy(5, 21);
+    if (searching == true) {
+        std::cout << "Arrows:Select  Backspace:Erase";
+    } else {
+        std::cout << "S:Sort A-Z/Z-A F:Find Del:Remove";
+    }
+
+    // Message line
+    gotoxy(5, 22);
+    setColor(12);
+    std::cout << message;
 }
 
 // Opened app view loop
@@ -166,22 +321,22 @@ void launchApp(const App& app) {
 
     gotoxy(5, 3);
     setColor(11);
-    cout << "< Back         " << app.icon << " App";
+    std::cout << "< Back         " << app.icon << " App";
 
     gotoxy(5, 6);
     setColor(15);
-    cout << "Running: " << app.name;
+    std::cout << "Running: " << app.name;
 
     gotoxy(5, 8);
     setColor(7);
-    cout << "Process ID: 4082";
+    std::cout << "Process ID: 4082";
 
     gotoxy(5, 15);
     setColor(8);
-    cout << "---------------------";
+    std::cout << "---------------------";
     gotoxy(5, 16);
     setColor(14);
-    cout << "Press [ESC] to Return";
+    std::cout << "Press [ESC] to Return";
 
     // Wait inside app screen until Esc or Backspace
     while (true) {
@@ -197,23 +352,45 @@ void launchApp(const App& app) {
 void spadeCard(){
     setColor(7);
     gotoxy(20, 11);
-    cout <<"     *";
+    std::cout <<"     *";
     gotoxy(20, 12);
-    cout <<"	***";
+    std::cout <<"	***";
     gotoxy(20, 13);
-    cout <<"    *****";
+    std::cout <<"   *****";
     gotoxy(20, 14);
-    cout <<"   *******";
+    std::cout <<"  *******";
     gotoxy(20, 15);
-    cout <<"   ** * **";
+    std::cout <<"  ** * **";
     gotoxy(20, 16);
-    cout <<"     *";
-    gotoxy(20, 15);
-    cout <<"    ***";		 
+    std::cout <<"     *";
+    gotoxy(20, 17);
+    std::cout <<"    ***";
 }
 
-void heartCard(){
-	
+void choiceIncorrect(int newNum, int &score){
+	std::string usrname;
+    gotoxy(10,8);
+    std::cout << newNum;
+    gotoxy(19, 23);
+    std::cout <<"               ";
+    gotoxy(19, 22);
+    std::cout <<"GAME OVER [X]";
+    Sleep(1000);
+    gotoxy(19, 22);
+    setColor(4);
+    std::cout <<"GAME OVER [X]";
+    Sleep(1000);
+    gotoxy(19, 22);
+    std::cout <<"               ";
+    gotoxy(19, 22);
+    setColor(7);
+    std::cout <<"Name:";
+    showCursor();
+    std::cin >> usrname;
+    gotoxy(19, 22);
+    std::cout <<"               ";
+    hideCursor();
+    score = 0;
 }
 
 void launchCard(const App& app) {
@@ -225,41 +402,27 @@ void launchCard(const App& app) {
 
     gotoxy(5, 3);
     setColor(11);
-    cout << "< Back         " << app.icon << " App";
-    
+    std::cout << "< Back         " << app.icon << " App";
+
     gotoxy(7,5);
     setColor(7);
-    cout << "  _________________________\n";
-    
+    std::cout << "  _________________________\n";
+
     for(int i = 0; i < 15; i++){
         gotoxy(7,6+i);
-        cout << "||                         |\n";
+        std::cout << "||                         |\n";
     }
     srand(time(0));
     int randomNum = rand() % 10 + 1;
-	
-    setColor(7);
-    gotoxy(20, 11);
-    cout <<"     *";
-    gotoxy(20, 12);
-    cout <<"	***";
-    gotoxy(20, 13);
-    cout <<"    *****";
-    gotoxy(20, 14);
-    cout <<"   *******";
-    gotoxy(20, 15);
-    cout <<"   ** * **";
-    gotoxy(20, 16);
-    cout <<"     *";
-    gotoxy(20, 17);
-    cout <<"    ***";		 
+
+    spadeCard();
     while (running) {
         gotoxy(10,8);
         setColor(7);
-        cout << randomNum << " ";
+        std::cout << randomNum << " ";
         int newNum = rand() % 10 + 1;
         gotoxy(29, 4);
-        cout << "Score:" << score;
+        std::cout << "Score:" << score;
         while(randomNum == newNum){
             newNum = rand() % 10 + 1;
         }
@@ -267,14 +430,14 @@ void launchCard(const App& app) {
         gotoxy(8, 26);
         if (selected == 0) {
             setColor(240); // Highlight selected app
-            cout << "[" << "Higher" << " " << "^"<< "]";
+            std::cout << "[" << "Higher" << " " << "^"<< "]";
             setColor(7); // Normal white text
-            cout << "     " << "Lower" << " " << "v" << " ";
+            std::cout << "     " << "Lower" << " " << "v" << " ";
         } else {
-            setColor(7); // Highlight selected app 
-            cout << " " << "Higher" << " " << "^"<< "     ";
+            setColor(7); // Highlight selected app
+            std::cout << " " << "Higher" << " " << "^"<< "     ";
             setColor(240); // Normal white text
-            cout << "[" << "Lower" << " " << "v" << "]";
+            std::cout << "[" << "Lower" << " " << "v" << "]";
         }
 
         int ch = _getch();
@@ -294,39 +457,17 @@ void launchCard(const App& app) {
                     randomNum = newNum;
                     gotoxy(20, 22);
                     setColor(2);
-                    cout << "/";
+                    std::cout << "/";
                     gotoxy(19, 23);
-                    cout << "V";
+                    std::cout << "V";
                     Sleep(1000);
                     gotoxy(20, 22);
                     setColor(7);
-                    cout << "/";
+                    std::cout << "/";
                     gotoxy(19, 23);
-                    cout << "V";
+                    std::cout << "V";
                 }else{
-                    string usrname;
-                    gotoxy(10,8);
-                    cout << newNum;
-                    gotoxy(19, 23);
-                    cout <<"               ";
-                    gotoxy(19, 22);
-                    cout <<"GAME OVER [X]";
-                    Sleep(1000);
-                    gotoxy(19, 22);
-                    setColor(4);
-                    cout <<"GAME OVER [X]";
-                    Sleep(1000);
-                    gotoxy(19, 22);
-                    cout <<"               ";
-                    gotoxy(19, 22);
-                    setColor(7);
-                    cout <<"Name:";
-                    showCursor();
-                    cin >> usrname;
-                    gotoxy(19, 22);
-                    cout <<"               ";
-                    hideCursor();
-                    score = 0;
+                    choiceIncorrect(newNum, score);
                 }
             }else{
                 if(newNum < randomNum){
@@ -334,40 +475,18 @@ void launchCard(const App& app) {
                     randomNum = newNum;
                     gotoxy(20, 22);
                     setColor(2);
-                    cout << "/";
+                    std::cout << "/";
                     gotoxy(19, 23);
-                    cout << "V";
+                    std::cout << "V";
                     Sleep(1000);
                     gotoxy(20, 22);
                     setColor(7);
-                    cout << "/";
+                    std::cout << "/";
                     gotoxy(19, 23);
-                    cout << "V";
+                    std::cout << "V";
                 }else{
-                    string usrname;
                     setColor(7);
-                    gotoxy(10,8);
-                    cout << newNum;
-                    gotoxy(19, 23);
-                    cout <<"               ";
-                    gotoxy(19, 22);
-                    cout <<"GAME OVER [X]";
-                    Sleep(1000);
-                    gotoxy(19, 22);
-                    setColor(4);
-                    cout <<"GAME OVER [X]";
-                    Sleep(1000);
-                    gotoxy(19, 22);
-                    cout <<"               ";
-                    gotoxy(19, 22);
-                    setColor(7);
-                    cout <<"Name:";
-                    showCursor();
-                    cin >> usrname;
-                    gotoxy(19, 22);
-                    cout <<"               ";
-                    hideCursor();
-                    score = 0;
+                    choiceIncorrect(newNum, score);
                 }
             }
         } else if (ch == KEY_ESC) {
@@ -377,22 +496,22 @@ void launchCard(const App& app) {
 
     clearScreen();
 }
-//START NG SNAKE GAME (HANGGANG #IFEND SA DULO NG FILE NA TO) "CURRENTLY 618 LINE NG CODE" =========================================================
+//snake game
 
-const int FIELD_LEFT   = 6; // Snake field dimensions (baguhin if lalakihan yung phone)
+const int FIELD_LEFT   = 6; // snake field
 const int FIELD_RIGHT  = 37;
 const int FIELD_TOP    = 6;
 const int FIELD_BOTTOM = 23;
-const int MAX_SNAKE    = 500; 
+const int MAX_SNAKE    = 500;
 
 struct Run {
-    string nickname;
+    std::string nickname;
     int score;
     int duration; // set natin as seconds
-    string date;
+    std::string date;
 };
 
-struct RunNode { // Doubly Linked List Node (same idea as AppNode) (The whole Snake game is NODESS!!! :>)
+struct RunNode { // Doubly Linked List Node (same idea as AppNode) 
     Run data;
     RunNode* prev;
     RunNode* next;
@@ -400,7 +519,7 @@ struct RunNode { // Doubly Linked List Node (same idea as AppNode) (The whole Sn
     RunNode(const Run& runData) : data(runData), prev(nullptr), next(nullptr) {}
 };
 
-class RunList { // double linked list to save runs 
+class RunList { // double linked list to save runs
 private:
     RunNode* head;
     RunNode* tail;
@@ -418,7 +537,7 @@ public:
         }
     }
 
-    void push_back(const Run& run) { // add a new run at the end of the list
+    void push_back(const Run& run) { // add a new run at the end 
         RunNode* newNode = new RunNode(run);
         if (head == nullptr) {
             head = newNode;
@@ -431,35 +550,35 @@ public:
         count++;
     }
 
-    void removeNode(RunNode* node) {  // remove a run from the list (the node is already found)
-        if (node->prev != nullptr) { // fix the link of the node before it
+    void removeNode(RunNode* node) {  
+        if (node->prev != nullptr) { 
             node->prev->next = node->next;
         } else {
-            head = node->next;      // head is una pointing sa next node
+            head = node->next;      
         }
 
-        if (node->next != nullptr) {    // fixed the link of the node after it
+        if (node->next != nullptr) {    
             node->next->prev = node->prev;
         } else {
-            tail = node->prev;      // it was the last node
+            tail = node->prev;      
         }
 
         delete node;
         count--;
     }
 
-    RunNode* search(const string& keyword) { // find the first run whose nickname contains the keyword
+    RunNode* search(const std::string& keyword) { 
         RunNode* current = head;
         while (current != nullptr) {
-            if (current->data.nickname.find(keyword) != string::npos) {
+            if (current->data.nickname.find(keyword) != std::string::npos) {
                 return current;
             }
             current = current->next;
         }
-        return nullptr; // kung wala nakita
+        return nullptr; 
     }
 
-    int getPosition(RunNode* target) const { // which number is this node in the list? 
+    int getPosition(RunNode* target) const { // counter
         int position = 1;
         RunNode* current = head;
         while (current != nullptr) {
@@ -472,7 +591,7 @@ public:
         return 0;
     }
 
-    void sortByScore(bool highToLow) { // Bubble sort by score (PARA MASAYA :>) :: highToLow = true  -> biggest score first;  highToLow = false -> smallest score first
+    void sortByScore(bool highToLow) { // Bubble sort by score 
         if (count < 2) {
             return;
         }
@@ -512,23 +631,23 @@ public:
     int size() const { return count; }
 };
 
-RunList snakeRuns; // this list lives as long as the program runs
+RunList snakeRuns; 
 
-string getTodayDate() { // Get today's date and time as text, example: 2026-10-23 21:45 (REMOVE NA LANG IF NECESSARY PARA SA SNAKE GAME, THIS IS JUST FOR SAVING THE RUNS)
+std::string getTodayDate() { //
     time_t now = time(0);               // current time in seconds
-    tm* timeInfo = localtime(&now);     // break it into year, month, day...
+    tm* timeInfo = localtime(&now);    
     char buffer[30];
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M", timeInfo);
-    return string(buffer);
+    return std::string(buffer);
 }
 
-string askText(string label, int row) { // Ask the player to type one word
+std::string askText(std::string label, int row) { // Ask the player to type one word
     gotoxy(5, row);
     setColor(7);
-    cout << label;
+    std::cout << label;
     showCursor();
-    string text;
-    cin >> text;
+    std::string text;
+    std::cin >> text;
     hideCursor();
 
     if (text.length() > 10) {
@@ -537,40 +656,40 @@ string askText(string label, int row) { // Ask the player to type one word
     return text;
 }
 
-void waitForKey() { // wait until the player presses any key (this is used to pause the screen so the player can read it)
+void waitForKey() { 
     _getch();
 }
 
-void drawSnakeBorder() { // SNAKE MODEL (PALITAN KUNG GUSTO BAGUHIN KULAY)
+void drawSnakeBorder() { // SNAKE MODEL 
     setColor(2);    // dark green para retro looks
 
     gotoxy(FIELD_LEFT, FIELD_TOP);    // WALL NAMAN TO (taas ito sa screen)
-    cout << "+";
+    std::cout << "+";
     for (int x = FIELD_LEFT + 1; x < FIELD_RIGHT; x++) {
-        cout << "-";
+        std::cout << "-";
     }
-    cout << "+";
+    std::cout << "+";
 
     for (int y = FIELD_TOP + 1; y < FIELD_BOTTOM; y++) { //side walls naman to
         gotoxy(FIELD_LEFT, y);
-        cout << "|";
+        std::cout << "|";
         gotoxy(FIELD_RIGHT, y);
-        cout << "|";
+        std::cout << "|";
     }
 
     gotoxy(FIELD_LEFT, FIELD_BOTTOM);
-    cout << "+";
+    std::cout << "+";
     for (int x = FIELD_LEFT + 1; x < FIELD_RIGHT; x++) {
-        cout << "-";
+        std::cout << "-";
     }
-    cout << "+";
+    std::cout << "+";
 }
 
 void clearSnakeField() {
     for (int y = FIELD_TOP + 1; y < FIELD_BOTTOM; y++) {
         gotoxy(FIELD_LEFT + 1, y);
         for (int x = FIELD_LEFT + 1; x < FIELD_RIGHT; x++) {
-            cout << " ";
+            std::cout << " ";
         }
     }
 }
@@ -578,7 +697,7 @@ void clearSnakeField() {
 void drawSnakeScore(int score) {
     gotoxy(7, 4);
     setColor(10);
-    cout << "SCORE: " << score << "    ";
+    std::cout << "SCORE: " << score << "    ";
 }
 
 bool isOnSnake(int snakeX[], int snakeY[], int length, int x, int y) { // point (x, y) on any part of the snake?
@@ -590,7 +709,7 @@ bool isOnSnake(int snakeX[], int snakeY[], int length, int x, int y) { // point 
     return false;
 }
 
-void placeFood(int snakeX[], int snakeY[], int length, int& foodX, int& foodY) { // pick a random empty spot for the food (goodspot = not on the snake)
+void placeFood(int snakeX[], int snakeY[], int length, int& foodX, int& foodY) { // random cords to place
     bool goodSpot = false;
     while (goodSpot == false) {
         foodX = FIELD_LEFT + 1 + rand() % (FIELD_RIGHT - FIELD_LEFT - 1);
@@ -602,18 +721,18 @@ void placeFood(int snakeX[], int snakeY[], int length, int& foodX, int& foodY) {
     }
 }
 
-void playSnake() { // for one round of the game, from start to game over. The score is saved at the end.
+void playSnake() {  // triggers game
     srand(time(0));
     clearScreen();
 
     gotoxy(5, 3);
     setColor(11);
-    cout << "< Back         S App";
+    std::cout << "< Back         S App";
 
     drawSnakeBorder();
     clearSnakeField();
 
-    int snakeX[MAX_SNAKE]; // Step 1: create the snake (3 pieces muna, going right)
+    int snakeX[MAX_SNAKE]; 
     int snakeY[MAX_SNAKE];
     int length = 3;
 
@@ -624,38 +743,38 @@ void playSnake() { // for one round of the game, from start to game over. The sc
     int dirX = 1;       // moving right yung starting niya
     int dirY = 0;
     int score = 0;
-    int delay = 120;    // ms between moves (smaller = faster) ps: edit na lang if gusto mo ng mas mabilis o mas mabagal
+    int delay = 120;    
     bool playing = true;
     bool quitEarly = false;
 
-    int foodX = 0;     // Step 2: place the first food
+    int foodX = 0;     
     int foodY = 0;
     placeFood(snakeX, snakeY, length, foodX, foodY);
 
-    for (int i = 0; i < length; i++) {     // Step 3: the snake (@ this is the head po, and o is the body) and the food (*)
+    for (int i = 0; i < length; i++) {     // printing head and body
         gotoxy(snakeX[i], snakeY[i]);
         if (i == 0) {
             setColor(10);
-            cout << "@";
+            std::cout << "@";
         } else {
             setColor(2);
-            cout << "o";
+            std::cout << "o";
         }
     }
     gotoxy(foodX, foodY);
     setColor(12);
-    cout << "*";
+    std::cout << "*";
 
     drawSnakeScore(score);
     gotoxy(7, 25);
     setColor(14);
-    cout << "Arrows: Move   Esc: Quit";
+    std::cout << "Arrows: Move   Esc: Quit";
 
-    time_t startTime = time(0);     // set to know when the game starts :>
+    time_t startTime = time(0);     
 
-    while (playing == true) { // Step 4: game loop (running game na to)
+    while (playing == true) { //loop while not game over
 
-        if (_kbhit()) {       // 4a. check the keyboard (_kbhit = keyboard hit, meaning a key was pressed)
+        if (_kbhit()) {       
             int ch = _getch();
             if (ch == 224 || ch == 0) {
                 int arrow = _getch();
@@ -682,45 +801,45 @@ void playSnake() { // for one round of the game, from start to game over. The sc
             break;
         }
 
-        int newHeadX = snakeX[0] + dirX;    // 4b. head location after the move
+        int newHeadX = snakeX[0] + dirX;    // head location after the move
         int newHeadY = snakeY[0] + dirY;
 
-        if (newHeadX <= FIELD_LEFT || newHeadX >= FIELD_RIGHT || // 4c. naumpog ba ang ulo sa wall? (or out of bounds)
+        if (newHeadX <= FIELD_LEFT || newHeadX >= FIELD_RIGHT || // check if snake is out of field
             newHeadY <= FIELD_TOP  || newHeadY >= FIELD_BOTTOM) {
             playing = false;
             break;
         }
 
-        if (isOnSnake(snakeX, snakeY, length, newHeadX, newHeadY) == true) { // 4d. nabonnggu ba ang ulo sa sarili?
+        if (isOnSnake(snakeX, snakeY, length, newHeadX, newHeadY) == true) { // check if snake ate itself
             playing = false;
             break;
         }
 
-        bool ateFood = false; // 4e. did the snake reach the food? 
+        bool ateFood = false; // 
         if (newHeadX == foodX && newHeadY == foodY) {
             ateFood = true;
         }
 
         if (ateFood == false) {
             gotoxy(snakeX[length - 1], snakeY[length - 1]);
-            cout << " ";
+            std::cout << " ";
         } else {
             length++;
         }
 
-        for (int i = length - 1; i > 0; i--) { // 4f. move every piece to where the piece in front of it was
+        for (int i = length - 1; i > 0; i--) { // move every piece to where the piece in front of it was
             snakeX[i] = snakeX[i - 1];
             snakeY[i] = snakeY[i - 1];
         }
         snakeX[0] = newHeadX;
         snakeY[0] = newHeadY;
 
-        gotoxy(snakeX[1], snakeY[1]); // 4g. draw the old head as body, and the new head
+        gotoxy(snakeX[1], snakeY[1]); // draw the old head as body, and the new head
         setColor(2);
-        cout << "o";
+        std::cout << "o";
         gotoxy(snakeX[0], snakeY[0]);
         setColor(10);
-        cout << "@";
+        std::cout << "@";
 
         if (ateFood == true) {    // 4h. if we ate, add score, go faster, and place new food (TODO: make sure the new food is not on the snake)
             score = score + 10;
@@ -733,7 +852,7 @@ void playSnake() { // for one round of the game, from start to game over. The sc
             placeFood(snakeX, snakeY, length, foodX, foodY);
             gotoxy(foodX, foodY);
             setColor(12);
-            cout << "*";
+            std::cout << "*";
         }
 
         if (dirY != 0) { // 4i. wait a little (moving up/down looks faster, so wait longer!!!)
@@ -757,14 +876,14 @@ void playSnake() { // for one round of the game, from start to game over. The sc
 
     gotoxy(12, 12);
     setColor(12);
-    cout << "*** GAME OVER ***";
+    std::cout << "*** GAME OVER ***";
     gotoxy(12, 14);
     setColor(10);
-    cout << "Score: " << score;
+    std::cout << "Score: " << score;
     gotoxy(12, 15);
-    cout << "Time : " << duration << " sec";
+    std::cout << "Time : " << duration << " sec";
 
-    string nickname = askText("Nickname: ", 17); // Step 6: ask for a nickname and save the run
+    std::string nickname = askText("Nickname: ", 17); // Step 6: ask for a nickname and save the run
 
     Run newRun;
     newRun.nickname = nickname;
@@ -775,61 +894,61 @@ void playSnake() { // for one round of the game, from start to game over. The sc
 
     gotoxy(12, 19);
     setColor(14);
-    cout << "Run saved!";
+    std::cout << "Run saved!";
     gotoxy(8, 21);
     setColor(8);
-    cout << "Press any key...";
+    std::cout << "Press any key...";
     waitForKey();
 }
 
-void drawRunRecord(RunNode* current, bool highToLow, string message) { // history run section (the player can scroll through them, sort, search, rename, delete)
+void drawRunRecord(RunNode* current, bool highToLow, std::string message) { // history run section (the player can scroll through them, sort, search, rename, delete)
     clearScreen();
 
     gotoxy(5, 3);
     setColor(11);
-    cout << "< Back       Run History";
+    std::cout << "< Back       Run History";
 
     gotoxy(5, 5);
     setColor(8);
     if (highToLow == true) {
-        cout << "Order: Highest -> Lowest";
+        std::cout << "Order: Highest -> Lowest";
     } else {
-        cout << "Order: Lowest -> Highest";
+        std::cout << "Order: Lowest -> Highest";
     }
 
     gotoxy(5, 7);
     setColor(15);
-    cout << "Run " << snakeRuns.getPosition(current) << " of " << snakeRuns.size();
+    std::cout << "Run " << snakeRuns.getPosition(current) << " of " << snakeRuns.size();
 
     gotoxy(5, 9);
     setColor(7);
-    cout << "Nickname: " << current->data.nickname;
+    std::cout << "Nickname: " << current->data.nickname;
     gotoxy(5, 10);
-    cout << "Score   : " << current->data.score;
+    std::cout << "Score   : " << current->data.score;
     gotoxy(5, 11);
-    cout << "Duration: " << current->data.duration << " sec";
+    std::cout << "Duration: " << current->data.duration << " sec";
     gotoxy(5, 12);
-    cout << "Date    : " << current->data.date;
+    std::cout << "Date    : " << current->data.date;
 
     gotoxy(5, 14);
     setColor(8);
     if (current->prev == nullptr) {
-        cout << "(first run)";
+        std::cout << "(first run)";
     }
     if (current->next == nullptr) {
         gotoxy(5, 15);
-        cout << "(last run)";
+        std::cout << "(last run)";
     }
 
     gotoxy(5, 17);
     setColor(12);
-    cout << message;
+    std::cout << message;
 
     gotoxy(5, 21);     // THIS IS THE CONTROL!!!!!!
     setColor(14);
-    cout << "<-Prev ->Next H/L:Sort F:Find";
+    std::cout << "<-Prev ->Next H/L:Sort F:Find";
     gotoxy(5, 22);
-    cout << "U:Rename  D:Delete  Esc:Back";
+    std::cout << "U:Rename  D:Delete  Esc:Back";
 }
 
 void showRunHistory() { // HISTORY of all runs (the player can scroll through them, sort, search, rename, delete)
@@ -837,15 +956,15 @@ void showRunHistory() { // HISTORY of all runs (the player can scroll through th
         clearScreen();
         gotoxy(5, 3);
         setColor(11);
-        cout << "< Back       Run History";
+        std::cout << "< Back       Run History";
         gotoxy(8, 10);
         setColor(7);
-        cout << "No runs saved yet.";
+        std::cout << "No runs saved yet.";
         gotoxy(8, 12);
-        cout << "Play a game first!";
+        std::cout << "Play a game first!";
         gotoxy(8, 21);
         setColor(8);
-        cout << "Press any key...";
+        std::cout << "Press any key...";
         waitForKey();
         return;
     }
@@ -853,7 +972,7 @@ void showRunHistory() { // HISTORY of all runs (the player can scroll through th
     RunNode* current = snakeRuns.getHead();     // start with the first run
     bool highToLow = true;
     bool viewing = true;
-    string message = "";
+    std::string message = "";
 
     while (viewing == true) {
         drawRunRecord(current, highToLow, message);
@@ -892,7 +1011,7 @@ void showRunHistory() { // HISTORY of all runs (the player can scroll through th
             message = "Sorted: lowest first.";
         }
         else if (ch == 'f' || ch == 'F') {
-            string keyword = askText("Search name: ", 19); // SEARCH by nickname
+            std::string keyword = askText("Search name: ", 19); // SEARCH by nickname
             RunNode* found = snakeRuns.search(keyword);
             if (found != nullptr) {
                 current = found;
@@ -902,7 +1021,7 @@ void showRunHistory() { // HISTORY of all runs (the player can scroll through th
             }
         }
         else if (ch == 'u' || ch == 'U') {
-            string newName = askText("New nickname: ", 19); // UPDATE the nickname
+            std::string newName = askText("New nickname: ", 19); // UPDATE the nickname
             current->data.nickname = newName;
             message = "Nickname updated.";
         }
@@ -919,10 +1038,10 @@ void showRunHistory() { // HISTORY of all runs (the player can scroll through th
                 clearScreen();
                 gotoxy(8, 10);
                 setColor(7);
-                cout << "All runs deleted.";
+                std::cout << "All runs deleted.";
                 gotoxy(8, 21);
                 setColor(8);
-                cout << "Press any key...";
+                std::cout << "Press any key...";
                 waitForKey();
                 viewing = false;
             } else {
@@ -938,7 +1057,7 @@ void showRunHistory() { // HISTORY of all runs (the player can scroll through th
 void launchSnake(const App& app) { // START MENU of the Snake app (Play, Run History, Back)
     hideCursor();
 
-    string options[3] = { "Play", "Run History", "Back" };
+    std::string options[3] = { "Play", "Run History", "Back" };
     int selected = 0;
     bool inMenu = true;
 
@@ -947,26 +1066,26 @@ void launchSnake(const App& app) { // START MENU of the Snake app (Play, Run His
 
         gotoxy(5, 3);
         setColor(11);
-        cout << "< Back         " << app.icon << " App";
+        std::cout << "< Back         " << app.icon << " App";
 
         gotoxy(14, 7);
         setColor(10);
-        cout << "S N A K E";
+        std::cout << "S N A K E";
 
         for (int i = 0; i < 3; i++) { // draw the 3 options
             gotoxy(13, 11 + i * 2);
             if (i == selected) {
                 setColor(240); // highlighted
-                cout << "[ " << options[i] << " ]";
+                std::cout << "[ " << options[i] << " ]";
             } else {
                 setColor(7);
-                cout << "  " << options[i] << "  ";
+                std::cout << "  " << options[i] << "  ";
             }
         }
 
         gotoxy(5, 25);
         setColor(14);
-        cout << "Up/Down: Move   Enter: Pick";
+        std::cout << "Up/Down: Move   Enter: Pick";
 
         int ch = _getch();
         if (ch == 224 || ch == 0) {
@@ -994,15 +1113,15 @@ void launchSnake(const App& app) { // START MENU of the Snake app (Play, Run His
     setColor(7);
     clearScreen();
 }
-// GOING BACK TO THE MAIN APP AND *END OF THE SNAKE GAME CODE* =====================================================================================
+// end of snake game code
 
-// START NG RPS GAME================================================================================================================================
+// start of rps game
 
-const int RPS_TARGET = 2;   // points needed to win a match (NAKA SET SA 2 PTS, CHANGE NA LANG IF GUSTO MO)
+const int WIN_SCORE = 2;   
 const int QUIT_PICK  = 3;   // special value: the player pressed Esc
-const string CHOICE_NAMES[3] = { "Rock", "Paper", "Scissors" };   // 0 = Rock, 1 = Paper, 2 = Scissors
+const std::string CHOICE_NAMES[3] = { "Rock", "Paper", "Scissors" };   // 0 = Rock, 1 = Paper, 2 = Scissors
 
-const string RPS_ART[3][6] = { // 6 lines lang para kasya sa mismong screen ng phone, 3 choices lang (Rock, Paper, Scissors)
+const std::string RPS_ART[3][6] = { // 6 lines onlly para kasya sa screen
     {   // ROCK
         "    _______   ",
         "---'   ____)  ",
@@ -1030,18 +1149,18 @@ const string RPS_ART[3][6] = { // 6 lines lang para kasya sa mismong screen ng p
 };
 
 struct Rival { // Rival Registry: one rival + their stats (DATA PART)
-    string name;
+    std::string name;
     int wins;
     int losses;
     int matches;
 };
 
 struct Battle { // Battle Archive: one finished match
-    string player1;
-    string player2;
-    string winner;
-    string choices; // every round, example: "R-S P-P S-R "
-    string date;
+    std::string player1;
+    std::string player2;
+    std::string winner;
+    std::string choices; // every round, example: "R-S P-P S-R "
+    std::string date;
     int score1;
     int score2;
     int rounds;
@@ -1063,7 +1182,7 @@ int getValue(const Rival& r, char mode) { // the number we sort by
     return r.matches;
 }
 
-struct RivalNode { // Doubly Linked List Node (same idea sa Snake) (The whole RPS game is NODESS!!! :>)
+struct RivalNode { 
     Rival data;
     RivalNode* prev;
     RivalNode* next;
@@ -1102,7 +1221,7 @@ public:
         count++;
     }
 
-    RivalNode* search(const string& name) {     // find the rival with this exact name
+    RivalNode* search(const std::string& name) {     // find the rival with this exact name
         RivalNode* current = head;
         while (current != nullptr) {
             if (current->data.name == name) {
@@ -1113,7 +1232,7 @@ public:
         return nullptr;
     }
 
-    void sortBy(char mode) {    // Bubble sort, biggest first. mode: W = wins, R = win rate, M = matches
+    void sortBy(char mode) {    // Bubble sort
         if (count < 2) {
             return;
         }
@@ -1138,7 +1257,7 @@ public:
     int size() const { return count; }
 };
 
-struct BattleNode { // Doubly Linked List Node (same idea sa Snake) (The whole RPS game is NODESS!!! :>)
+struct BattleNode { 
     Battle data;
     BattleNode* prev;
     BattleNode* next;
@@ -1177,7 +1296,7 @@ public:
         count++;
     }
 
-    int getPosition(BattleNode* target) const { // which number is this battle in the list?
+    int getPosition(BattleNode* target) const { // battle number counter
         int position = 1;
         BattleNode* current = head;
         while (current != nullptr) {
@@ -1197,21 +1316,21 @@ public:
 RivalList rpsRivals;    // these two lists live as long as the program runs
 BattleList rpsBattles;
 
-string rpsToday() {     // today's date and time as text (Sae as Snake's getTodayDate, remove if not needed)
+std::string rpsToday() {     // today's date and time as text 
     time_t now = time(0);
     tm* timeInfo = localtime(&now);
     char buffer[30];
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M", timeInfo);
-    return string(buffer);
+    return std::string(buffer);
 }
 
-string rpsAsk(string label, int row) {  // ask the player to type one word (max 10 letters)
+std::string rpsAsk(std::string label, int row) {  // ask the player to type one word (max 10 letters)
     gotoxy(5, row);
     setColor(7);
-    cout << label;
+    std::cout << label;
     showCursor();
-    string text;
-    cin >> text;
+    std::string text;
+    std::cin >> text;
     hideCursor();
     if (text.length() > 10) {
         text = text.substr(0, 10);
@@ -1219,34 +1338,34 @@ string rpsAsk(string label, int row) {  // ask the player to type one word (max 
     return text;
 }
 
-void rpsWait() { //para hindi agad nagra-run 
+void rpsWait() { //para hindi agad nagra-run
     _getch();
 }
 
-void drawRpsHeader(string title) { // clear the screen and print the top bar
+void drawRpsHeader(std::string title) { // print the top bar
     clearScreen();
     gotoxy(5, 3);
     setColor(11);
-    cout << "< Back   " << title;
+    std::cout << "< Back   " << title;
 }
 
-void clearRows(int from, int to) {      // erase only some rows of the phone screen (para walang flicker)
+void clearRows(int from, int to) {      // erase only some rows of the phone screen 
     for (int y = from; y <= to; y++) {
         gotoxy(4, y);
-        cout << string(36, ' ');
+        std::cout << std::string(36, ' ');
     }
 }
 
-void showEmpty(string title) {          // message when nothing is saved yet
+void showEmpty(std::string title) {          // message when nothing is saved yet
     drawRpsHeader(title);
     gotoxy(8, 10);
     setColor(7);
-    cout << "Nothing saved yet.";
+    std::cout << "Nothing saved yet.";
     gotoxy(8, 12);
-    cout << "Play a match first!";
+    std::cout << "Play a match first!";
     gotoxy(8, 21);
     setColor(8);
-    cout << "Press any key...";
+    std::cout << "Press any key...";
     rpsWait();
 }
 
@@ -1254,35 +1373,35 @@ int roundResult(int a, int b) {     // 0 = draw, 1 = first player wins, 2 = seco
     if (a == b) {
         return 0;
     }
-    if ((a + 1) % 3 == b) {         // the next number beats the one before it (paper beats rock...)
+    if ((a + 1) % 3 == b) {         // the next number beats the one before it 
         return 2;
     }
     return 1;
 }
 
-void drawHand(int choice, int x, int y) {   // print one hand (6 lines of ASCII art)
+void drawHand(int choice, int x, int y) {   // print hand
     for (int i = 0; i < 6; i++) {
         gotoxy(x, y + i);
-        cout << RPS_ART[choice][i];
+        std::cout << RPS_ART[choice][i];
     }
 }
 
-void drawFists(int y, int color, string word) {     // both fists (rock) at row y, with a word under them
+void drawFists(int y, int color, std::string word) {     // both fists (rock) at row y, with a word under them
     clearRows(8, 17);
     setColor(color);
-    drawHand(0, 4, y);      // left hand = player 1
-    drawHand(0, 22, y);     // right hand = player 2
+    drawHand(0, 4, y);      
+    drawHand(0, 22, y);     
     gotoxy(5, 17);
-    cout << word;
+    std::cout << word;
 }
 
-void shakeAnimation() {     // fists pump up and down while counting down
-    string words[3] = { "ROCK...", "PAPER...", "SCISSORS..." };
+void shakeAnimation() {     
+    std::string words[3] = { "ROCK...", "PAPER...", "SCISSORS..." };
     for (int beat = 0; beat < 3; beat++) {
         for (int up = 1; up >= 0; up--) {
             int y = 8;      // fists up
             if (up == 0) {
-                y = 10;     // fists down (PARA MAY ALOG)
+                y = 10;     // fists down (para umalog)
             }
             drawFists(y, 10, words[beat]);
             Sleep(220);
@@ -1292,7 +1411,7 @@ void shakeAnimation() {     // fists pump up and down while counting down
     Sleep(400);
 }
 
-void blinkResult(string text, int color) {  // blink the result text (AESTHETIC WISE LANG, REMOVE IF GUSTO MO)
+void blinkResult(std::string text, int color) {  // blink the result text 
     for (int i = 0; i < 5; i++) {
         gotoxy(5, 17);
         if (i % 2 == 0) {
@@ -1300,17 +1419,17 @@ void blinkResult(string text, int color) {  // blink the result text (AESTHETIC 
         } else {
             setColor(8);
         }
-        cout << ">> " << text << " <<";
+        std::cout << ">> " << text << " <<";
         Sleep(250);
     }
 }
 
-int askChoice(string name) {    // the player picks a hand (keys are hidden so player 2 can't peek)
+int askChoice(std::string name) {    // ask user
     setColor(14);
     gotoxy(5, 9);
-    cout << name << ", pick your hand:";
+    std::cout << name << ", pick your hand:";
     gotoxy(5, 11);
-    cout << "1:Rock  2:Paper  3:Scissors";
+    std::cout << "1:Rock  2:Paper  3:Scissors";
 
     int pick = -1;
     while (pick == -1) {
@@ -1330,7 +1449,7 @@ int askChoice(string name) {    // the player picks a hand (keys are hidden so p
     return pick;
 }
 
-RivalNode* getRival(string name) {  // find the rival, or register a new one
+RivalNode* getRival(std::string name) {  // find the rival, or register a new one
     RivalNode* found = rpsRivals.search(name);
     if (found != nullptr) {
         return found;
@@ -1357,22 +1476,22 @@ void recordMatch(const Battle& battle) {    // save the match in the archive, an
     rpsBattles.push_back(battle);
 }
 
-void playMatch(string p1, string p2, bool vsComputer) { // one match, from start to the end. Saved at the end. (THE ACTUAL MATCH)
+void playMatch(std::string p1, std::string p2, bool vsComputer) { 
     int score1 = 0;
     int score2 = 0;
     int round = 0;
-    string choices = "";
+    std::string choices = "";
     bool quit = false;
 
-    while (score1 < RPS_TARGET && score2 < RPS_TARGET && quit == false) {
+    while (score1 < WIN_SCORE && score2 < WIN_SCORE && quit == false) {
         round++;
 
-        drawRpsHeader("Round " + to_string(round));     // Step 1: show the scoreboard
+        drawRpsHeader("Round " + std::to_string(round));     // scoreboard
         gotoxy(5, 5);
         setColor(15);
-        cout << p1 << " " << score1 << " - " << score2 << " " << p2;
+        std::cout << p1 << " " << score1 << " - " << score2 << " " << p2;
 
-        int pick1 = askChoice(p1);      // Step 2: both players choose
+        int pick1 = askChoice(p1);      // ask user
         int pick2 = QUIT_PICK;
         if (pick1 != QUIT_PICK) {
             if (vsComputer == true) {
@@ -1387,16 +1506,16 @@ void playMatch(string p1, string p2, bool vsComputer) { // one match, from start
             break;
         }
 
-        gotoxy(4, 7);                   // Step 3: names above the hands, then the countdown animation
+        gotoxy(4, 7);                   //names above the hands, then the countdown animation
         setColor(15);
-        cout << p1;
+        std::cout << p1;
         gotoxy(22, 7);
-        cout << p2;
+        std::cout << p2;
         shakeAnimation();
 
-        int result = roundResult(pick1, pick2);     // Step 4: who won this round? (also pick the color + message)
+        int result = roundResult(pick1, pick2);     // winner of round
         int color = 14;                             // draw = yellow
-        string message = "IT'S A DRAW!";
+        std::string message = "IT'S A DRAW!";
         if (result == 1) {
             score1++;
             color = 10;                             // player 1 wins = green
@@ -1407,21 +1526,21 @@ void playMatch(string p1, string p2, bool vsComputer) { // one match, from start
             message = p2 + " WINS!";
         }
 
-        clearRows(8, 17);               // Step 5: reveal both hands in the result color
+        clearRows(8, 17);               // reveal both hands in the result color
         setColor(color);
         drawHand(pick1, 4, 8);
         drawHand(pick2, 22, 8);
         gotoxy(4, 15);
-        cout << CHOICE_NAMES[pick1];
+        std::cout << CHOICE_NAMES[pick1];
         gotoxy(22, 15);
-        cout << CHOICE_NAMES[pick2];
+        std::cout << CHOICE_NAMES[pick2];
         blinkResult(message, color);
 
         choices = choices + CHOICE_NAMES[pick1][0] + "-" + CHOICE_NAMES[pick2][0] + " ";  // remember the round (first letters, ex: R-S)
 
         gotoxy(5, 22);
         setColor(8);
-        cout << "Press any key...";
+        std::cout << "Press any key...";
         rpsWait();
     }
 
@@ -1429,7 +1548,7 @@ void playMatch(string p1, string p2, bool vsComputer) { // one match, from start
         return;
     }
 
-    string winner = p2;     // Step 6: match over, save the battle
+    std::string winner = p2;     // Step 6: match over, save the battle
     if (score1 > score2) {
         winner = p1;
     }
@@ -1440,25 +1559,25 @@ void playMatch(string p1, string p2, bool vsComputer) { // one match, from start
     drawRpsHeader("Match Over");
     gotoxy(11, 9);
     setColor(12);
-    cout << "*** MATCH OVER ***";
+    std::cout << "*** MATCH OVER ***";
     gotoxy(11, 11);
     setColor(10);
-    cout << winner << " WINS!";
+    std::cout << winner << " WINS!";
     gotoxy(11, 13);
-    cout << "Score: " << score1 << " - " << score2;
+    std::cout << "Score: " << score1 << " - " << score2;
     gotoxy(11, 15);
     setColor(14);
-    cout << "Battle saved!";
+    std::cout << "Battle saved!";
     gotoxy(8, 21);
     setColor(8);
-    cout << "Press any key...";
+    std::cout << "Press any key...";
     rpsWait();
 }
 
 void startMatch(bool vsComputer) {      // ask for the names, then play
     drawRpsHeader("New Match");
-    string p1 = rpsAsk("Player 1 name: ", 8);
-    string p2 = "Computer";
+    std::string p1 = rpsAsk("Player 1 name: ", 8);
+    std::string p2 = "Computer";
     if (vsComputer == false) {
         p2 = rpsAsk("Player 2 name: ", 10);
     }
@@ -1468,39 +1587,39 @@ void startMatch(bool vsComputer) {      // ask for the names, then play
     playMatch(p1, p2, vsComputer);
 }
 
-void drawBattle(BattleNode* current, string message) {   // show one saved battle (THE BATTLE ARCHIVED IN THE LIST)
+void drawBattle(BattleNode* current, std::string message) {   // show one saved battle (THE BATTLE ARCHIVED IN THE LIST)
     drawRpsHeader("Battle History");
 
     gotoxy(5, 5);
     setColor(15);
-    cout << "Battle " << rpsBattles.getPosition(current) << " of " << rpsBattles.size();
+    std::cout << "Battle " << rpsBattles.getPosition(current) << " of " << rpsBattles.size();
 
     gotoxy(5, 7);
     setColor(7);
-    cout << "Date   : " << current->data.date;
+    std::cout << "Date   : " << current->data.date;
     gotoxy(5, 8);
-    cout << "Fighter: " << current->data.player1 << " vs " << current->data.player2;
+    std::cout << "Fighter: " << current->data.player1 << " vs " << current->data.player2;
     gotoxy(5, 9);
-    cout << "Score  : " << current->data.score1 << " - " << current->data.score2;
+    std::cout << "Score  : " << current->data.score1 << " - " << current->data.score2;
     gotoxy(5, 10);
-    cout << "Winner : " << current->data.winner;
+    std::cout << "Winner : " << current->data.winner;
     gotoxy(5, 11);
-    cout << "Rounds : " << current->data.rounds;
+    std::cout << "Rounds : " << current->data.rounds;
     gotoxy(5, 12);
-    cout << "Picks (P1-P2):";
+    std::cout << "Picks (P1-P2):";
     gotoxy(5, 13);
-    cout << current->data.choices.substr(0, 30);
+    std::cout << current->data.choices.substr(0, 30);
 
     gotoxy(5, 15);
     setColor(12);
-    cout << message;
+    std::cout << message;
 
     gotoxy(5, 21);
     setColor(14);
-    cout << "<-Prev  ->Next  Esc:Back";
+    std::cout << "<-Prev  ->Next  Esc:Back";
 }
 
-void showArchive() {    // scroll through the battles with the arrow keys
+void showHistory() {    // scroll through the battles with the arrow keys
     if (rpsBattles.size() == 0) {
         showEmpty("Battle History");
         return;
@@ -1508,7 +1627,7 @@ void showArchive() {    // scroll through the battles with the arrow keys
 
     BattleNode* current = rpsBattles.getHead();
     bool viewing = true;
-    string message = "";
+    std::string message = "";
 
     while (viewing == true) {
         drawBattle(current, message);
@@ -1536,7 +1655,7 @@ void showArchive() {    // scroll through the battles with the arrow keys
     }
 }
 
-void showRankings() {   // list the rivals, sorted by wins / win rate / matches (RANKING NAMAN ITO)
+void showRankings() {   
     if (rpsRivals.size() == 0) {
         showEmpty("Rival Rankings");
         return;
@@ -1552,16 +1671,16 @@ void showRankings() {   // list the rivals, sorted by wins / win rate / matches 
         gotoxy(5, 5);
         setColor(8);
         if (mode == 'W') {
-            cout << "Sorted by: Wins";
+            std::cout << "Sorted by: Wins";
         } else if (mode == 'R') {
-            cout << "Sorted by: Win rate";
+            std::cout << "Sorted by: Win rate";
         } else {
-            cout << "Sorted by: Matches";
+            std::cout << "Sorted by: Matches";
         }
 
         gotoxy(5, 7);   // column titles
         setColor(15);
-        cout << "#  Name        W   L   M   %";
+        std::cout << "#  Name        W   L   M   %";
 
         RivalNode* current = rpsRivals.getHead();   // one row per rival (max 12 rows fit)
         int rank = 1;
@@ -1569,26 +1688,26 @@ void showRankings() {   // list the rivals, sorted by wins / win rate / matches 
         while (current != nullptr && rank <= 12) {
             int row = 7 + rank;
             gotoxy(5, row);
-            cout << rank;
+            std::cout << rank;
             gotoxy(8, row);
-            cout << current->data.name;
+            std::cout << current->data.name;
             gotoxy(20, row);
-            cout << current->data.wins;
+            std::cout << current->data.wins;
             gotoxy(24, row);
-            cout << current->data.losses;
+            std::cout << current->data.losses;
             gotoxy(28, row);
-            cout << current->data.matches;
+            std::cout << current->data.matches;
             gotoxy(32, row);
-            cout << winRate(current->data) << "%";
+            std::cout << winRate(current->data) << "%";
             current = current->next;
             rank++;
         }
 
         gotoxy(5, 22);
         setColor(14);
-        cout << "W:Wins  R:Rate  M:Matches";
+        std::cout << "W:Wins  R:Rate  M:Matches";
         gotoxy(5, 23);
-        cout << "Esc:Back";
+        std::cout << "Esc:Back";
 
         int ch = _getch();
         if (ch == 'w' || ch == 'W') {
@@ -1603,11 +1722,11 @@ void showRankings() {   // list the rivals, sorted by wins / win rate / matches 
     }
 }
 
-void launchRps(const App& app) { //LOGIN MENU of the RPS app (Vs Computer, 2 Players, Rankings, Battle Archive, Back)
+void launchRps(const App& app) { //home menu display
     hideCursor();
     srand(time(0));
 
-    string options[5] = { "Vs Computer", "2 Players", "Rankings", "Battle History", "Back" };
+    std::string options[5] = { "Vs Computer", "2 Players", "Rankings", "Battle History", "Back" };
     int selected = 0;
     bool inMenu = true;
 
@@ -1616,22 +1735,22 @@ void launchRps(const App& app) { //LOGIN MENU of the RPS app (Vs Computer, 2 Pla
 
         gotoxy(10, 5);
         setColor(14);
-        cout << "ROCK PAPER SCISSORS";
+        std::cout << "ROCK PAPER SCISSORS";
 
         for (int i = 0; i < 5; i++) {   // draw the 5 options
             gotoxy(11, 9 + i * 2);
             if (i == selected) {
                 setColor(240);
-                cout << "[ " << options[i] << " ]";
+                std::cout << "[ " << options[i] << " ]";
             } else {
                 setColor(7);
-                cout << "  " << options[i] << "  ";
+                std::cout << "  " << options[i] << "  ";
             }
         }
 
         gotoxy(5, 25);
         setColor(14);
-        cout << "Up/Down: Move   Enter: Pick";
+        std::cout << "Up/Down: Move   Enter: Pick";
 
         int ch = _getch();
         if (ch == 224 || ch == 0) {
@@ -1649,7 +1768,7 @@ void launchRps(const App& app) { //LOGIN MENU of the RPS app (Vs Computer, 2 Pla
             } else if (selected == 2) {
                 showRankings();
             } else if (selected == 3) {
-                showArchive();
+                showHistory();
             } else {
                 inMenu = false;
             }
@@ -1661,80 +1780,282 @@ void launchRps(const App& app) { //LOGIN MENU of the RPS app (Vs Computer, 2 Pla
     setColor(7);
     clearScreen();
 }
-// END OF THE RPS GAME CODE=========================================================================================================================
+// rps code end
 
-int main() {
+
+//appmart  codes
+
+void launchStore(const App& app) {
     hideCursor();
-    system("cls");
-
-    AppList apps;
-    apps.push_back({"Phone",   ">"});
-    apps.push_back({"YouWho?", "#"});
-    apps.push_back({"Camera",  "O"});
-    apps.push_back({"Gallery", "*"});
-    apps.push_back({"Music",   "~"});
-    apps.push_back({"Settings","@"});
-    apps.push_back({"BitBite", "S"});
-    apps.push_back({"Rock 'n' Clash", "R"});
-
-    AppNode* selectedApp = apps.getHead();
+    int selected = 0;
+    std::string message = "";
     bool running = true;
 
-    drawPhoneFrame();
+    while (running == true) {
+        AppNode* items[MAX_APPS];
+        int itemCount = collectVisible(storeApps, "", items);   
 
-    while (running && selectedApp != nullptr) {
-        renderHomeScreen(apps, selectedApp);
+        if (selected >= itemCount) {  
+            selected = itemCount - 1;
+        }
+        if (selected < 0) {
+            selected = 0;
+        }
+
+        clearRows(3, 26);   // erase the old screen
+
+        gotoxy(5, 3);
+        setColor(11);
+        std::cout << "< Back         " << app.icon << " Store";
+
+        gotoxy(5, 5);
+        setColor(14);
+        std::cout << "APP MART - Download apps";
+        gotoxy(5, 6);
+        setColor(8);
+        std::cout << itemCount << " app(s) available";
+
+        if (itemCount == 0) {
+            gotoxy(8, 11);
+            setColor(7);
+            std::cout << "Everything is installed!";
+            gotoxy(8, 13);
+            std::cout << "Delete an app on the home";
+            gotoxy(8, 14);
+            std::cout << "screen to find it here.";
+        }
+
+        for (int i = 0; i < itemCount; i++) {   // one row per app 
+            std::string name = items[i]->data.name;
+            while (name.length() < 14) {        // name  padding
+                name = name + " ";
+            }
+
+            gotoxy(6, 8 + i * 2);
+            if (i == selected) {
+                setColor(240);  // highlighted
+                std::cout << "[ " << items[i]->data.icon << " " << name << "  GET ]";
+            } else {
+                setColor(7);
+                std::cout << "  " << items[i]->data.icon << " " << name << "  GET  ";
+            }
+        }
+
+        gotoxy(5, 24);
+        setColor(10);
+        std::cout << message;
+
+        gotoxy(5, 25);
+        setColor(14);
+        std::cout << "Up/Down: Move   Enter: Download";
+        gotoxy(5, 26);
+        std::cout << "Esc: Back";
+
+        message = "";
 
         int ch = _getch();
-        if (ch == 224 || ch == 0) { // Arrow key prefix handling
-            switch (_getch()) {
-                case KEY_UP:
-                    // Move 2 nodes back for row navigation
-                    if (selectedApp->prev && selectedApp->prev->prev) {
-                        selectedApp = selectedApp->prev->prev;
-                    }
-                    break;
-
-                case KEY_DOWN:
-                    // Move 2 nodes forward for row navigation
-                    if (selectedApp->next && selectedApp->next->next) {
-                        selectedApp = selectedApp->next->next;
-                    }
-                    break;
-
-                case KEY_LEFT:
-                    // Move 1 node back
-                    if (selectedApp->prev) {
-                        selectedApp = selectedApp->prev;
-                    }
-                    break;
-
-                case KEY_RIGHT:
-                    // Move 1 node forward
-                    if (selectedApp->next) {
-                        selectedApp = selectedApp->next;
-                    }
-                    break;
+        if (ch == 224 || ch == 0) {
+            int arrow = _getch();
+            if (arrow == KEY_UP && selected > 0) {
+                selected--;
+            } else if (arrow == KEY_DOWN && selected < itemCount - 1) {
+                selected++;
             }
         } else if (ch == KEY_ENTER) {
-            if (selectedApp->data.name == "YouWho?") {
-                launchCard(selectedApp->data);
-            }
-            else if (selectedApp->data.name == "BitBite") {
-                launchSnake(selectedApp->data);
-            }
-            else if (selectedApp->data.name == "Rock 'n' Clash") {
-                launchRps(selectedApp->data);
+            if (itemCount > 0) {
+                AppNode* node = items[selected];
+                App chosen = node->data;        
+                storeApps.removeNode(node);
+                homeApps.push_back(chosen);     
+                applyHomeSort();                
+                message = chosen.name + " added to home!";
+            } else {
+                message = "Nothing to download.";
             }
         } else if (ch == KEY_ESC) {
             running = false;
         }
     }
 
+    setColor(7);
+    clearScreen();
+}
+// end of appmart code
+
+// open an app from the home screen
+void openApp(const App& app) {
+    if (app.name == "YouWho?") {
+        launchCard(app);
+    }
+    else if (app.name == "BitBite") {
+        launchSnake(app);
+    }
+    else if (app.name == "Rock 'n' Clash") {
+        launchRps(app);
+    }
+    else if (app.name == "AppMart") {
+        launchStore(app);
+    }
+}
+
+// move highlight
+void moveSelection(int& selected, int count, int arrow) {
+    if (count == 0) {
+        return;
+    }
+
+    if (arrow == KEY_LEFT) {
+        if (selected > 0) {
+            selected--;
+        }
+    } else if (arrow == KEY_RIGHT) {
+        if (selected < count - 1) {
+            selected++;
+        }
+    } else if (arrow == KEY_UP) {
+        if (selected >= 2) {
+            selected -= 2;
+        }
+    } else if (arrow == KEY_DOWN) {
+        if (selected + 2 < count) {
+            selected += 2;
+        } else if (selected / 2 < (count - 1) / 2) {    
+            selected = count - 1;
+        }
+    }
+}
+
+// delete an app from the home screen 
+std::string removeHomeApp(AppNode* node) {
+    if (node->data.name == "AppMart") {     
+        return "AppMart can't be removed.";
+    }
+
+    App removed = node->data;      
+    homeApps.removeNode(node);
+    storeApps.push_back(removed);
+    return removed.name + " is back in AppMart.";
+}
+
+int main() {
+    hideCursor();
+    system("cls");
+
+    // apps at home screen initially
+    homeApps.push_back({"Phone",   ">"});
+    homeApps.push_back({"YouWho?", "#"});
+    homeApps.push_back({"BitBite", "S"});
+    homeApps.push_back({"Rock 'n' Clash", "R"});
+    homeApps.push_back({"AppMart", "6"});
+
+    // apps on the appmart
+    storeApps.push_back({"Camera",   "O"});
+    storeApps.push_back({"Gallery",  "*"});
+    storeApps.push_back({"Music",    "~"});
+    storeApps.push_back({"Settings", "@"});
+
+    int selected = 0;               // highlighted app 
+    bool searching = false;         // true while the search bar is being typed in
+    std::string filter = "";     
+    std::string message = "";
+    bool running = true;
+
+    drawPhoneFrame();
+
+    while (running) {
+        AppNode* visible[MAX_APPS];
+        int visCount = collectVisible(homeApps, filter, visible);   // empty filter = all home apps
+
+        if (selected >= visCount) {     // keep the highlight inside the list
+            selected = visCount - 1;
+        }
+        if (selected < 0) {
+            selected = 0;
+        }
+
+        renderHomeScreen(visible, visCount, selected, filter, searching, message);
+        message = "";
+
+        int ch = _getch();
+
+        if (ch == 224 || ch == 0) { // Arrow key prefix handling
+            int arrow = _getch();
+            if (arrow == KEY_UP || arrow == KEY_DOWN || arrow == KEY_LEFT || arrow == KEY_RIGHT) {
+                moveSelection(selected, visCount, arrow);
+            } else if (arrow == KEY_DELETE && searching == false) {
+                if (visCount > 0) {
+                    message = removeHomeApp(visible[selected]);
+                }
+            }
+        }
+        else if (searching == true) {
+            // search bar mode
+            if (ch == KEY_ENTER) {
+                if (visCount > 0) {
+                    App toOpen = visible[selected]->data;   // copy, the list may change inside the app
+                    searching = false;
+                    filter = "";
+                    openApp(toOpen);
+                    selected = indexOfName(homeApps, toOpen.name);  // keep it highlighted on the normal home screen
+                }
+            } else if (ch == KEY_ESC) {
+                searching = false;
+                filter = "";
+                selected = 0;
+            } else if (ch == 8) {   // Backspace
+                if (!filter.empty()) {
+                    filter.erase(filter.length() - 1);
+                    selected = 0;
+                }
+            } else if (ch >= 32 && ch <= 126) {     // normal typed character
+                if (filter.length() < 20) {
+                    filter += static_cast<char>(ch);
+                    selected = 0;
+                }
+            }
+        }
+        else {
+            // ---- NORMAL HOME MODE ----
+            if (ch == KEY_ENTER) {
+                if (visCount > 0) {
+                    App toOpen = visible[selected]->data;
+                    openApp(toOpen);
+                    selected = indexOfName(homeApps, toOpen.name);
+                }
+            } else if (ch == KEY_ESC) {
+                running = false;
+            } else if (ch == 's' || ch == 'S') {
+                // sort
+                std::string keepName = "";
+                if (visCount > 0) {
+                    keepName = visible[selected]->data.name;    // keeps highlight
+                }
+
+                if (homeSortMode == 1) {
+                    homeSortMode = 2;
+                    message = "Sorted: Z-A.";
+                } else {
+                    homeSortMode = 1;
+                    message = "Sorted: A-Z.";
+                }
+                applyHomeSort();
+                selected = indexOfName(homeApps, keepName);
+            } else if (ch == 'f' || ch == 'F' || ch == '/') {
+                searching = true;       // open the search bar
+                filter = "";
+                selected = 0;
+            } else if (ch == 'd' || ch == 'D') {
+                if (visCount > 0) {
+                    message = removeHomeApp(visible[selected]);
+                }
+            }
+        }
+    }
+
     clearScreen();
     gotoxy(10, 10);
     setColor(8);
-    cout << "Device Turned Off";
+    std::cout << "Device Turned Off";
     gotoxy(0, 20);
     setColor(7);
     return 0;
