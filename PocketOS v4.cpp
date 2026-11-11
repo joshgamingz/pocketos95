@@ -888,7 +888,7 @@ void showCardLeaderboard() {    // best score of every user
     }
 }
 
-void launchCard(const App& app) {   // START MENU of the Card Game app
+void launchCard(const App& app) {   
     hideCursor();
     srand(time(0));
 
@@ -948,9 +948,9 @@ void launchCard(const App& app) {   // START MENU of the Card Game app
 }
 // end of card game code
 
-// ---- MODULE 3: SNAKE (BITBITE) ----
 
-//snake game
+
+//snake game (bitbite)
 
 const int FIELD_LEFT   = 6; // snake field
 const int FIELD_RIGHT  = 37;
@@ -959,7 +959,7 @@ const int FIELD_BOTTOM = 23;
 const int FIELD_CELLS  = (FIELD_RIGHT - FIELD_LEFT - 1) * (FIELD_BOTTOM - FIELD_TOP - 1);   // how many free boxes inside the walls
 const int MAX_SNAKE    = 500;
 
-// ---- LINKED LIST: SNAKE RUNS ----
+// linked list of snake runs
 
 struct Run {
     std::string nickname;
@@ -1298,7 +1298,7 @@ void playSnake() {  // triggers game
         }
     }
 
-    if (quitEarly == true) { // if the player pressed Esc, leave without saving
+    if (quitEarly == true) { // leave without saving
         return;
     }
 
@@ -1380,7 +1380,7 @@ void drawRunRecord(RunNode* current, bool highToLow, std::string message) { // h
     setColor(12);
     std::cout << message;
 
-    gotoxy(5, 20);     // THIS IS THE CONTROL!!!!!!
+    gotoxy(5, 20);     
     setColor(14);
     std::cout << "A/D: Prev/Next   F: Find";
     gotoxy(5, 21);
@@ -1389,7 +1389,7 @@ void drawRunRecord(RunNode* current, bool highToLow, std::string message) { // h
     std::cout << "R: Rename   X: Delete   Q: Back";
 }
 
-void showRunHistory() { // HISTORY of all runs
+void showRunHistory() { 
     if (snakeRuns.size() == 0) {
         clearScreen();
         gotoxy(5, 3);
@@ -1504,7 +1504,7 @@ void launchSnake(const App& app) { // START MENU of the Snake app
 
         gotoxy(14, 7);
         setColor(10);
-        std::cout << "S N A K E";
+        std::cout << "BitBite";
 
         for (int i = 0; i < 3; i++) { // draw the 3 options
             gotoxy(13, 11 + i * 2);
@@ -1544,9 +1544,7 @@ void launchSnake(const App& app) { // START MENU of the Snake app
 }
 // end of snake game code
 
-// ---- MODULE 4: ROCK PAPER SCISSORS ----
-
-// start of rps game
+// rock n clash game
 
 const int WIN_SCORE = 2;   
 const int QUIT_PICK  = 3;   // special value: the player pressed Esc
@@ -1579,7 +1577,7 @@ const std::string RPS_ART[3][6] = { // 6 lines onlly para kasya sa screen
     }
 };
 
-// ---- LINKED LISTS: RIVALS AND BATTLES ----
+// linked lists of battles
 
 struct Rival { // Rival Registry: one rival + their stats
     std::string name;
@@ -2167,9 +2165,9 @@ void launchRps(const App& app) { //home menu display
     while (inMenu == true) {
         drawRpsHeader("      " + app.icon + " App");
 
-        gotoxy(10, 5);
+        gotoxy(13, 5);
         setColor(14);
-        std::cout << "ROCK PAPER SCISSORS";
+        std::cout << "Rock 'n' Clash";
 
         for (int i = 0; i < 5; i++) {   // draw the 5 options
             gotoxy(11, 9 + i * 2);
@@ -2213,10 +2211,7 @@ void launchRps(const App& app) { //home menu display
 }
 // rps code end
 
-// ---- MODULE 5: THE ESCAPE PROTOCOL (THE ABYSSAL PROTOCOL STORY) ----
-
-// the story is made of scene nodes, every choice is a pointer to the next scene
-// 5 rounds, 2 options each. Only the path A-A-B-B-A survives.
+// escape protocol
 
 enum SceneId {
     SCN_JUNCTION, SCN_ARM, SCN_NURSERY, SCN_DECK, SCN_LIFT,
@@ -3050,7 +3045,7 @@ void showEscRankings() {    // best percent of every user
 
 // ---- START MENU ----
 
-void launchEscape(const App& app) {     // START MENU of the Escape Protocol app
+void launchEscape(const App& app) {     // menu of the Escape Protocol app
     hideCursor();
     buildStory();
 
@@ -3110,13 +3105,11 @@ void launchEscape(const App& app) {     // START MENU of the Escape Protocol app
 // end of escape protocol code
 
 
-// ---- MODULE 6: YOUWHO MAIL ----
-
-// a simple email app. Every sent email is one node of a doubly linked list
+// youwho mail app
 
 const std::string MY_ADDRESS = "me@youwho.com";
 
-// ---- LINKED LIST: SENT EMAILS ----
+// linked list part ng sent emails
 
 struct Email {
     std::string to;
@@ -3218,7 +3211,7 @@ public:
 
 EmailList sentEmails;
 
-bool isValidAddress(const std::string& address) {   // simple check: something@something, one @, no spaces
+bool isValidAddress(const std::string& address) {   // check kung may @ and no space
     size_t at = address.find('@');
     if (at == std::string::npos || at == 0 || at == address.length() - 1) {
         return false;
@@ -3260,7 +3253,7 @@ void composeEmail() {
     bool valid = false;
     while (valid == false) {        // ask the address until it looks right
         if (readField(14, 5, 25, 25, mail.to) == false) {
-            return;                 // Esc = cancel, nothing is sent
+            return;                 //  nothing is sent
         }
 
         if (isValidAddress(mail.to) == true) {
@@ -3423,9 +3416,9 @@ void showSentMail() {   // scroll through the sent emails, find, delete
     }
 }
 
-// ---- START MENU ----
+// Start Menu
 
-void launchMail(const App& app) {   // START MENU of the YouWho app
+void launchMail(const App& app) {   
     hideCursor();
 
     std::string options[3] = { "Compose", "Sent Mail", "Back" };
@@ -3482,14 +3475,14 @@ void launchMail(const App& app) {   // START MENU of the YouWho app
     setColor(7);
     clearScreen();
 }
-// end of mail code
+// end ng YouWho code
 
 
-// ---- MODULE 7: APPMART ----
+
 
 //appmart  codes
 
-int customAppCount = 0;     // gives every user-made app its own id
+int customAppCount = 0;     
 
 std::string createStoreApp() {      // add a new placeholder app to AppMart. Returns a message for the screen
     if (storeApps.size() >= MAX_APPS) {
@@ -3631,7 +3624,7 @@ void launchStore(const App& app) {
 }
 // end of appmart code
 
-// ---- PLACEHOLDER APPS ----
+// Placeholder apps
 
 void launchPlaceholder(const App& app) {    // every app without its own code shows this screen
     clearScreen();
@@ -3671,7 +3664,7 @@ void launchPlaceholder(const App& app) {    // every app without its own code sh
     clearScreen();
 }
 
-// ---- MODULE 8: PHONE (SIMPLE DIALER) ----
+// Phone app
 
 std::string lastCalled = "";    // the last number that was called
 
@@ -3759,7 +3752,7 @@ void launchPhone(const App& app) {
     clearScreen();
 }
 
-// ---- HOME SCREEN CONTROLS ----
+// Home screen controls
 
 // open an app from the home screen. Uses the id, so renaming an app never breaks it
 void openApp(const App& app) {
