@@ -1,5 +1,3 @@
-
-
 #include <iostream>
 #include <string>
 #include <limits>
@@ -13,9 +11,9 @@
 #define nullptr NULL  // Error handling for old devc++ versions
 #endif
 
-// ---- SHARED CONSTANTS ----
+// Shared constants
 
-// key codes given back by readKey(). 
+// key codes
 const int KEY_NONE      = -1;    
 const int KEY_UP        = 1000;
 const int KEY_DOWN      = 1001;
@@ -34,10 +32,10 @@ const int PHONE_BOTTOM = 27;
 
 // Function Prototypes
 
-void clearRows(int from, int to);   // defined later in the RPS part
-bool readField(short x, short y, int width, int maxLen, std::string& text);   // defined after the keyboard part
+void clearRows(int from, int to);   // for RPS
+bool readField(short x, short y, int width, int maxLen, std::string& text);   // for keyboard
 
-// ---- SHARED HELPERS ----
+// Shared Helpers
 
 std::string toLowerStr(const std::string& s) {   // lowercase copy of a string
     std::string result = s;
@@ -101,12 +99,8 @@ void drawPhoneFrame() {
     setColor(7);
 }
 
-// ---- KEYBOARD ----
+// Keyboard
 
-// Waits for one key and gives back a simple code.
-// letterKeys = true : W A S D become the arrows, E and Space become Enter, Q becomes Esc,
-//                     every other letter comes back in lowercase (example: 'f')
-// letterKeys = false: used when the player is typing, so letters stay letters
 int readKey(bool letterKeys) {
     int ch = _getch();
 
@@ -151,7 +145,7 @@ int readKey(bool letterKeys) {
     return ch;
 }
 
-// ---- INPUT AND DATE HELPERS ----
+// INPUT AND DATE HELPERS
 
 std::string readWord() {   // (not used anymore, askText uses readField) read one word, then throw away the rest of the line
     std::string text;
@@ -263,11 +257,11 @@ void showEmptyScreen(const std::string& title, const std::string& hint) {   // m
     waitForKey();
 }
 
-// ---- MODULE 1: HOME SCREEN AND APP LIST ----
+// HOME SCREEN AND APP LIST -
 
 const int MAX_APPS = 14;    // most apps the home screen or AppMart can show
 
-// ---- LINKED LIST: APPS ----
+// LINKED LIST: APPS 
 
 struct App {
     std::string name;   // the name on the screen, the player can rename it
@@ -532,9 +526,9 @@ void launchApp(const App& app) {
     clearScreen();
 }
 
-// ---- MODULE 2: CARD GAME (HIGHER OR LOWER) ----
+// CARD GAME (HIGHER OR LOWER) 
 
-// ---- LINKED LIST: CARD GAME PLAYERS (LEADERBOARD) ----
+// linked list leaderboard
 
 struct CardPlayer {     // one user and the best score they ever got
     std::string name;
@@ -2295,7 +2289,7 @@ public:
     int size() const { return count; }
 };
 
-// ---- LINKED LIST: ESCAPE RUNS ----
+// LINKED LIST: ESCAPE RUNS 
 
 struct EscRun {
     std::string name;
@@ -2427,7 +2421,7 @@ public:
     int size() const { return count; }
 };
 
-// ---- LINKED LIST: ESCAPE PLAYERS ----
+// LINKED LIST: ESCAPE protocol players
 
 struct EscPlayer {      // one user and the best percent they ever got
     std::string name;
@@ -2543,7 +2537,7 @@ EscRunList escRuns;
 EscPlayerList escPlayers;
 int escMaxPoints = 1;       // best score the story allows, so 100% is possible
 
-// ---- STORY SETUP ----
+// sory setup
 
 void setScene(StoryNode& scene, const std::string& title, const std::string& text, int points, bool isEnding, bool escaped) {
     scene.title = title;
@@ -2636,12 +2630,12 @@ void buildStory() {
     addOption(escScenes[SCN_LIFT], "Slam the red FIRE SUPPRESSION button to blast the roof vents.", &escScenes[END_FROZEN]);
 
     escMaxPoints = bestFrom(&escScenes[SCN_JUNCTION]);
-    if (escMaxPoints < 1) {     // never divide by zero
+    if (escMaxPoints < 1) {     
         escMaxPoints = 1;
     }
 }
 
-// ---- SCREEN HELPERS ----
+// screen helpers
 
 int wrapText(const std::string& text, int width, std::string lines[], int maxLines) {   // cut a long text into lines that fit the screen
     int count = 0;
@@ -2802,7 +2796,7 @@ void showEscEmpty(const std::string& title) {   // message when nothing is saved
     waitForKey();
 }
 
-// ---- PLAYER RECORDS ----
+// player records
 
 bool updatePlayer(const std::string& name, int percent) {   // true if this is the best percent of the user
     EscPlayerNode* player = escPlayers.search(name);
@@ -2847,7 +2841,7 @@ void refreshPlayer(const std::string& name) {   // after a run is deleted, count
     }
 }
 
-// ---- PLAYING ----
+// playing
 
 bool playEscape(const std::string& name, bool showIntro) {   // one full run. Returns true if the player wants to retry
     PathList path;
@@ -2972,7 +2966,7 @@ void startEscape() {    // ask for the name, then play until the player stops
 
 
 
-// ---- BEST RANKINGS ----
+// rankings
 
 void showEscRankings() {    // best percent of every user
     if (escPlayers.size() == 0) {
@@ -3043,7 +3037,7 @@ void showEscRankings() {    // best percent of every user
     }
 }
 
-// ---- START MENU ----
+// menu
 
 void launchEscape(const App& app) {     // menu of the Escape Protocol app
     hideCursor();
@@ -3232,7 +3226,7 @@ void drawMailHeader(const std::string& title) {
     std::cout << "< Back   " << title;
 }
 
-// ---- WRITE AN EMAIL ----
+// write email
 
 void composeEmail() {
     drawMailHeader("YouWho: New Email");
@@ -3300,7 +3294,7 @@ void composeEmail() {
     waitForKey();
 }
 
-// ---- SENT MAIL ----
+// sent mail
 
 void drawMailRecord(EmailNode* current, const std::string& message) {
     drawMailHeader("Sent Mail");
